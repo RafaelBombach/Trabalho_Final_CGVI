@@ -6,16 +6,14 @@
 
 ## Integrantes da dupla
 
-- **Aluno 1 - Nome**: <mark>`<preencher>`</mark>
-- **Aluno 1 - Cartão UFRGS**: <mark>`<preencher>`</mark>
+  - **Aluno 1 - Nome**: <mark>`Rafael Benjamin Bombach`</mark>
+- **Aluno 1 - Cartão UFRGS**: <mark>`00342854`</mark>
 
-- **Aluno 2 - Nome**: <mark>`<preencher>`</mark>
-- **Aluno 2 - Cartão UFRGS**: <mark>`<preencher>`</mark>
 
 ## Detalhes do que será implementado
 
-- **Título do trabalho**: <mark>`<preencher>`</mark>
-- **Parágrafo curto descrevendo o que será implementado**: <mark>`<preencher>`</mark>
+- **Título do trabalho**: <mark>`Duck Hunt 3D`</mark>
+- **Parágrafo curto descrevendo o que será implementado**: <mark>`Pretendo reinterpretar o jogo Duck Hunt de forma que o jogo seja 3D, com movimentação do personagem que atinge os patos enquanto eles voam pelo mapa.`</mark>
 
 ## Especificação visual
 
@@ -34,7 +32,7 @@
 >   do próprio repositório. Mas, garanta que qualquer um tenha
 >   permissão de acesso ao vídeo através deste link.
 
-<mark>`<preencher>`</mark>
+<mark>`(https://www.youtube.com/watch?v=J3sfsP9W048)`</mark>
 
 ### Vídeo - Timestamp
 
@@ -43,8 +41,8 @@
 >   será a base de comparação para avaliar se o seu trabalho final
 >   conseguiu ou não reproduzir a referência.
 
-- **Timestamp inicial**: <mark>`<preencher>`</mark>
-- **Timestamp final**: <mark>`<preencher>`</mark>
+- **Timestamp inicial**: <mark>`6:00`</mark>
+- **Timestamp final**: <mark>`6:30`</mark>
 
 ### Imagens
 
@@ -52,20 +50,24 @@
 > - Coloque aqui **três imagens** capturadas do vídeo acima, que você
 >   irá usar como ilustração para as explicações que vêm abaixo.
 
-<mark>`<preencher>`</mark>
+<mark>`<img width="974" height="587" alt="imagem_2026-04-29_204811229" src="https://github.com/user-attachments/assets/8ee5820a-be1c-4f63-a9d5-9e794e8ff5f7" />
+<img width="839" height="575" alt="image" src="https://github.com/user-attachments/assets/93b00d64-3a24-4658-a8fe-fefe5cd4976f" />
+<img width="949" height="596" alt="image" src="https://github.com/user-attachments/assets/97e215c9-abe9-48d9-be8e-d085b0c97be6" />
+
+`</mark>
 
 ## Especificação textual
 
 Para cada um dos requisitos abaixo (detalhados no [Enunciado do Trabalho final - Moodle](https://moodle.ufrgs.br/mod/assign/view.php?id=6018620)), escreva um parágrafo **curto** explicando como este requisito será atendido, apontando itens específicos do vídeo/imagens que você incluiu acima que atendem estes requisitos.
 
 ### Malhas poligonais complexas
-<mark>`<preencher>`</mark>
+<mark>`Os patos voando serão de malhas poligonais, jutanmente com o cenario`</mark>
 
 ### Transformações geométricas controladas pelo usuário
-<mark>`<preencher>`</mark>
+<mark>`O personagem poderá se movimentar pelo mapa`</mark>
 
 ### Diferentes tipos de câmeras
-<mark>`<preencher>`</mark>
+<mark>`Primeira e terceira pessoa`</mark>
 
 ### Instâncias de objetos
 <mark>`<preencher>`</mark>
@@ -80,7 +82,7 @@ Para cada um dos requisitos abaixo (detalhados no [Enunciado do Trabalho final -
 <mark>`<preencher>`</mark>
 
 ### Movimentação com curva Bézier cúbica
-<mark>`<preencher>`</mark>
+<mark>`Alguns patos irão se movimentar com curvas de Bezier`</mark>
 
 ### Animações baseadas no tempo ($\Delta t$)
 <mark>`<preencher>`</mark>
@@ -94,4 +96,5 @@ Para cada um dos requisitos abaixo (detalhados no [Enunciado do Trabalho final -
 > - Para cada item, **explique por que** não será implementado ou por
 >   que será implementado parcialmente.
 
-<mark>`<preencher>`</mark>
+<mark>`Não pretendo utilizar física no trabalho, se a mira está no pato, este será acertado, ou seja, não depende da velocidade e nem trajetória da munição
+`</mark>
