@@ -60,6 +60,8 @@
 
 Para cada um dos requisitos abaixo (detalhados no [Enunciado do Trabalho final - Moodle](https://moodle.ufrgs.br/mod/assign/view.php?id=6018620)), escreva um parágrafo **curto** explicando como este requisito será atendido, apontando itens específicos do vídeo/imagens que você incluiu acima que atendem estes requisitos.
 
+> Comentário Professor: Faltou preencher alguns campos abaixo.
+
 ### Malhas poligonais complexas
 <mark>`Os patos voando serão de malhas poligonais, jutanmente com o cenario`</mark>
 
@@ -98,3 +100,5 @@ Para cada um dos requisitos abaixo (detalhados no [Enunciado do Trabalho final -
 
 <mark>`Não pretendo utilizar física no trabalho, se a mira está no pato, este será acertado, ou seja, não depende da velocidade e nem trajetória da munição
 `</mark>
+
+> Comentário Professor: Você quer dizer que os projéteis serão "instantâneos", isso? A movimentação dos pássaros não se dará por aceleração e velocidade?
