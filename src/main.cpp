@@ -199,13 +199,31 @@ float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 3.5f; // Distância da câmera para a origem
 
-// Variáveis que controlam rotação do antebraço
-float g_ForearmAngleZ = 0.0f;
-float g_ForearmAngleX = 0.0f;
+// ===================== Estado do jogo Duck Hunt 3D =====================
+// (Daqui para baixo, código do trabalho final; o que estava acima é em
+//  grande parte o código base do Laboratório 5 da disciplina.)
 
-// Variáveis que controlam translação do torso
-float g_TorsoPositionX = 0.0f;
-float g_TorsoPositionY = 0.0f;
+// Tipos de câmera implementados. A câmera de 1a pessoa é uma câmera LIVRE
+// (a posição é controlada pelo jogador). A de 3a pessoa é uma câmera LOOK-AT
+// que orbita o jogador.
+enum CameraMode { CAMERA_FIRST_PERSON, CAMERA_THIRD_PERSON };
+CameraMode g_CameraMode = CAMERA_FIRST_PERSON;
+
+// Posição do jogador no mundo (sobre o plano do chão, em XZ). A altura dos
+// "olhos" (câmera de 1a pessoa) é somada a esta posição no loop de render.
+glm::vec4 g_PlayerPosition = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+// Estado das teclas de movimento (WASD). Atualizado em KeyCallback() e lido
+// no loop principal para mover o jogador de forma contínua e baseada no tempo.
+bool g_KeyW = false;
+bool g_KeyA = false;
+bool g_KeyS = false;
+bool g_KeyD = false;
+
+// Variáveis de animação baseada no tempo (delta-time). Garantem que a
+// movimentação ocorra na mesma velocidade independente do FPS da máquina.
+float g_DeltaTime    = 0.0f; // Tempo (s) entre o quadro atual e o anterior
+float g_LastFrameTime = 0.0f; // Instante (s) em que o quadro anterior começou
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -254,7 +272,7 @@ int main(int argc, char* argv[])
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "INF01047 - Seu Cartao - Seu Nome", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "Duck Hunt 3D - INF01047", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -274,6 +292,10 @@ int main(int argc, char* argv[])
 
     // Indicamos que as chamadas OpenGL deverão renderizar nesta janela
     glfwMakeContextCurrent(window);
+
+    // Escondemos e capturamos o cursor do mouse: ele fica preso no centro da
+    // janela e usamos seu movimento relativo para olhar ao redor (estilo FPS).
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Carregamento de todas funções definidas por OpenGL 3.3, utilizando a
     // biblioteca GLAD.
@@ -298,28 +320,19 @@ int main(int argc, char* argv[])
     //
     LoadShadersFromFiles();
 
-    // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/red_brick_diff_1k.jpg");      // TextureImage0
-    LoadTextureImage("../../data/rocky_terrain_02_diff_1k.jpg"); // TextureImage1
+    // Carregamos as imagens de textura utilizadas pelo jogo. Cada chamada
+    // associa a imagem a uma "texture unit" sequencial (TextureImage0, 1, ...).
+    LoadTextureImage("../../data/pato_texture.jpeg");            // TextureImage0 - pato
+    LoadTextureImage("../../data/rocky_terrain_02_diff_1k.jpg"); // TextureImage1 - chão
 
-    // Construímos a representação de objetos geométricos através de malhas de triângulos
-    ObjModel spheremodel("../../data/sphere.obj");
-    ComputeNormals(&spheremodel);
-    BuildTrianglesAndAddToVirtualScene(&spheremodel);
-
-    ObjModel bunnymodel("../../data/bunny.obj");
-    ComputeNormals(&bunnymodel);
-    BuildTrianglesAndAddToVirtualScene(&bunnymodel);
+    // Construímos a representação dos objetos geométricos (malhas de triângulos).
+    ObjModel patomodel("../../data/pato.obj");
+    ComputeNormals(&patomodel);
+    BuildTrianglesAndAddToVirtualScene(&patomodel);
 
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
-
-    if ( argc > 1 )
-    {
-        ObjModel model(argv[1]);
-        BuildTrianglesAndAddToVirtualScene(&model);
-    }
 
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
@@ -353,21 +366,66 @@ int main(int argc, char* argv[])
         // os shaders de vértice e fragmentos).
         glUseProgram(g_GpuProgramID);
 
-        // Computamos a posição da câmera utilizando coordenadas esféricas.  As
-        // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
-        // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
-        // e ScrollCallback().
-        float r = g_CameraDistance;
-        float y = r*sin(g_CameraPhi);
-        float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
-        float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+        // ===================== Animação baseada no tempo =====================
+        // Computamos o "delta-time": quanto tempo (em segundos) passou desde o
+        // quadro anterior. TODAS as movimentações (jogador, patos, câmera) são
+        // multiplicadas por g_DeltaTime, garantindo velocidade constante
+        // independente do FPS da máquina (requisito de animação por tempo).
+        float current_time = (float)glfwGetTime();
+        g_DeltaTime = current_time - g_LastFrameTime;
+        g_LastFrameTime = current_time;
 
-        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-        // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-        glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-        glm::vec4 camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
-        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+        // ===================== Direção da câmera =====================
+        // O vetor "view" (direção para onde a câmera/jogador olha) é definido a
+        // partir dos ângulos de yaw (g_CameraTheta) e pitch (g_CameraPhi),
+        // controlados pelo mouse. Coordenadas esféricas convertidas para
+        // cartesianas.
+        glm::vec4 camera_up_vector = glm::vec4(0.0f,1.0f,0.0f,0.0f);
+        glm::vec4 view_direction = glm::vec4(
+            cosf(g_CameraPhi)*sinf(g_CameraTheta),
+            sinf(g_CameraPhi),
+            cosf(g_CameraPhi)*cosf(g_CameraTheta),
+            0.0f
+        );
+
+        // ===================== Movimentação do jogador (WASD) =====================
+        // O jogador anda sobre o plano XZ. "forward" é o vetor view projetado no
+        // chão (sem componente Y); "right" é perpendicular a ele.
+        glm::vec4 forward = glm::vec4(view_direction.x, 0.0f, view_direction.z, 0.0f);
+        if (norm(forward) > 1e-6f)
+            forward = forward / norm(forward);
+        glm::vec4 right = crossproduct(forward, camera_up_vector); // perpendicular no chão
+        if (norm(right) > 1e-6f)
+            right = right / norm(right);
+
+        float player_speed = 8.0f; // unidades por segundo
+        glm::vec4 move = glm::vec4(0.0f,0.0f,0.0f,0.0f);
+        if (g_KeyW) move += forward;
+        if (g_KeyS) move -= forward;
+        if (g_KeyD) move += right;
+        if (g_KeyA) move -= right;
+        if (norm(move) > 1e-6f)
+            g_PlayerPosition += (move / norm(move)) * player_speed * g_DeltaTime;
+
+        // ===================== Definição da câmera virtual =====================
+        // Implementamos dois tipos de câmera bem distintos (requisito do trabalho):
+        //  - 1a pessoa: câmera LIVRE posicionada nos "olhos" do jogador.
+        //  - 3a pessoa: câmera LOOK-AT que orbita o jogador a uma distância.
+        const float eye_height = 1.7f;
+        glm::vec4 camera_position_c;
+        glm::vec4 camera_view_vector;
+
+        if (g_CameraMode == CAMERA_FIRST_PERSON)
+        {
+            camera_position_c  = g_PlayerPosition + glm::vec4(0.0f, eye_height, 0.0f, 0.0f);
+            camera_view_vector = view_direction;
+        }
+        else // CAMERA_THIRD_PERSON (look-at)
+        {
+            glm::vec4 lookat = g_PlayerPosition + glm::vec4(0.0f, eye_height, 0.0f, 0.0f);
+            camera_position_c  = lookat - view_direction * g_CameraDistance;
+            camera_view_vector = lookat - camera_position_c;
+        }
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
@@ -410,35 +468,31 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
-        #define SPHERE 0
-        #define BUNNY  1
-        #define PLANE  2
+        // Identificadores de cada tipo de objeto (devem casar com os #define do
+        // arquivo shader_fragment.glsl).
+        #define GROUND 0
+        #define DUCK   1
 
-        // Desenhamos o modelo da esfera
-        model = Matrix_Translate(-1.0f,0.0f,0.0f)
-              * Matrix_Rotate_Z(0.6f)
-              * Matrix_Rotate_X(0.2f)
-              * Matrix_Rotate_Y(g_AngleY + (float)glfwGetTime() * 0.1f);
+        // ---- Chão ----
+        // O plano "the_plane" é 2x2 em XZ; escalamos para cobrir um grande
+        // terreno (100x100 unidades) centrado na origem.
+        model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+              * Matrix_Scale(50.0f, 1.0f, 50.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SPHERE);
-        DrawVirtualObject("the_sphere");
-
-        // Desenhamos o modelo do coelho
-        model = Matrix_Translate(1.0f,0.0f,0.0f)
-              * Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, BUNNY);
-        DrawVirtualObject("the_bunny");
-
-        // Desenhamos o plano do chão
-        model = Matrix_Translate(0.0f,-1.1f,0.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLANE);
+        glUniform1i(g_object_id_uniform, GROUND);
         DrawVirtualObject("the_plane");
 
-        // Imprimimos na tela os ângulos de Euler que controlam a rotação do
-        // terceiro cubo.
-        TextRendering_ShowEulerAngles(window);
+        // ---- Pato ----
+        // O modelo do pato é pequeno (~0.5 un); escalamos e posicionamos no ar.
+        // Por enquanto ele apenas gira lentamente (animação por tempo); a lógica
+        // de voo será adicionada nas próximas etapas.
+        float t = (float)glfwGetTime();
+        model = Matrix_Translate(0.0f, 3.0f, -6.0f)
+              * Matrix_Rotate_Y(t * 0.8f)
+              * Matrix_Scale(6.0f, 6.0f, 6.0f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, DUCK);
+        DrawVirtualObject("0"); // nome do shape dentro de pato.obj
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
@@ -760,7 +814,7 @@ void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
         size_t first_index = indices.size();
         size_t num_triangles = model->shapes[shape].mesh.num_face_vertices.size();
 
-        const float minval = std::numeric_limits<float>::min();
+        const float minval = std::numeric_limits<float>::lowest();
         const float maxval = std::numeric_limits<float>::max();
 
         glm::vec3 bbox_min = glm::vec3(maxval,maxval,maxval);
@@ -1119,69 +1173,36 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 // cima da janela OpenGL.
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
-    // Abaixo executamos o seguinte: caso o botão esquerdo do mouse esteja
-    // pressionado, computamos quanto que o mouse se movimento desde o último
-    // instante de tempo, e usamos esta movimentação para atualizar os
-    // parâmetros que definem a posição da câmera dentro da cena virtual.
-    // Assim, temos que o usuário consegue controlar a câmera.
+    // Como o cursor está capturado (GLFW_CURSOR_DISABLED), este callback é
+    // chamado continuamente com a posição virtual do mouse. Usamos o
+    // deslocamento relativo para girar a câmera no estilo FPS (mouse-look).
 
-    if (g_LeftMouseButtonPressed)
+    // Na primeira chamada não há posição anterior válida; apenas a registramos
+    // para evitar um "salto" brusco da câmera.
+    static bool first_mouse = true;
+    if (first_mouse)
     {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
-    
-        // Atualizamos parâmetros da câmera com os deslocamentos
-        g_CameraTheta -= 0.01f*dx;
-        g_CameraPhi   += 0.01f*dy;
-    
-        // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-        float phimax = 3.141592f/2;
-        float phimin = -phimax;
-    
-        if (g_CameraPhi > phimax)
-            g_CameraPhi = phimax;
-    
-        if (g_CameraPhi < phimin)
-            g_CameraPhi = phimin;
-    
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
         g_LastCursorPosX = xpos;
         g_LastCursorPosY = ypos;
+        first_mouse = false;
+        return;
     }
 
-    if (g_RightMouseButtonPressed)
-    {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
-    
-        // Atualizamos parâmetros da antebraço com os deslocamentos
-        g_ForearmAngleZ -= 0.01f*dx;
-        g_ForearmAngleX += 0.01f*dy;
-    
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
-        g_LastCursorPosX = xpos;
-        g_LastCursorPosY = ypos;
-    }
+    float dx = xpos - g_LastCursorPosX;
+    float dy = ypos - g_LastCursorPosY;
+    g_LastCursorPosX = xpos;
+    g_LastCursorPosY = ypos;
 
-    if (g_MiddleMouseButtonPressed)
-    {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
-    
-        // Atualizamos parâmetros da antebraço com os deslocamentos
-        g_TorsoPositionX += 0.01f*dx;
-        g_TorsoPositionY -= 0.01f*dy;
-    
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
-        g_LastCursorPosX = xpos;
-        g_LastCursorPosY = ypos;
-    }
+    const float sensitivity = 0.003f;
+    g_CameraTheta -= sensitivity * dx; // yaw   (olhar para os lados)
+    g_CameraPhi   -= sensitivity * dy; // pitch (olhar para cima/baixo)
+
+    // Limitamos o pitch para não "virar de cabeça para baixo" (evita também a
+    // singularidade da câmera look-at quando view fica paralelo ao up).
+    const float phimax = 3.141592f/2 - 0.01f;
+    const float phimin = -phimax;
+    if (g_CameraPhi > phimax) g_CameraPhi = phimax;
+    if (g_CameraPhi < phimin) g_CameraPhi = phimin;
 }
 
 // Função callback chamada sempre que o usuário movimenta a "rodinha" do mouse.
@@ -1217,40 +1238,24 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
-
-    if (key == GLFW_KEY_X && action == GLFW_PRESS)
+    // ===== Movimentação do jogador (WASD) =====
+    // Guardamos apenas o ESTADO (pressionada/solta) de cada tecla. O
+    // deslocamento em si é aplicado no loop principal, multiplicado por
+    // g_DeltaTime, para que a velocidade seja constante (animação por tempo).
+    if (action == GLFW_PRESS || action == GLFW_RELEASE)
     {
-        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
+        bool pressed = (action == GLFW_PRESS);
+        if (key == GLFW_KEY_W) g_KeyW = pressed;
+        if (key == GLFW_KEY_A) g_KeyA = pressed;
+        if (key == GLFW_KEY_S) g_KeyS = pressed;
+        if (key == GLFW_KEY_D) g_KeyD = pressed;
     }
 
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
+    // ===== Alterna entre câmera de 1a e 3a pessoa (tecla C) =====
+    if (key == GLFW_KEY_C && action == GLFW_PRESS)
     {
-        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-    {
-        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-    {
-        g_AngleX = 0.0f;
-        g_AngleY = 0.0f;
-        g_AngleZ = 0.0f;
-        g_ForearmAngleX = 0.0f;
-        g_ForearmAngleZ = 0.0f;
-        g_TorsoPositionX = 0.0f;
-        g_TorsoPositionY = 0.0f;
+        g_CameraMode = (g_CameraMode == CAMERA_FIRST_PERSON)
+                     ? CAMERA_THIRD_PERSON : CAMERA_FIRST_PERSON;
     }
 
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
