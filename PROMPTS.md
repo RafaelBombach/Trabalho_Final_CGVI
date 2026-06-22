@@ -103,3 +103,18 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > programa ao atirar — forçar w=1 nas posições dos patos.
 
 **Arquivos afetados:** `src/main.cpp`.
+
+---
+
+## Etapa 4 — Colisões do jogador (limites do mapa + obstáculos)
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Implementar colisões do jogador: ele não pode sair dos limites do terreno e
+> não pode atravessar obstáculos. Como ainda não há um modelo de árvore em .obj
+> (o asset veio como COLLADA .dae), usar rochas (instâncias da esfera,
+> texturizadas com projeção esférica) como obstáculos por enquanto. A colisão
+> com os obstáculos é um teste de interseção círculo-círculo no plano XZ que
+> empurra o jogador para fora da rocha.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.

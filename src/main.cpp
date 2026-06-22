@@ -266,6 +266,21 @@ glm::vec4 g_ShotDirection = glm::vec4(0.0f,0.0f,1.0f,0.0f);
 // Placar (número de patos abatidos).
 int g_Score = 0;
 
+// ---- Obstáculos (rochas) ----
+// Objetos com os quais o jogador colide (não pode atravessar). Cada um é uma
+// instância da esfera, com posição no chão e um raio de colisão (em XZ).
+struct Obstacle
+{
+    glm::vec4 pos;   // centro na base (y = 0)
+    float     scale; // escala do modelo da esfera
+    float     radius;// raio de colisão no plano XZ
+};
+std::vector<Obstacle> g_Obstacles;
+
+// Metade do tamanho do chão (o terreno vai de -50 a +50 em X e Z). O jogador
+// é mantido dentro destes limites (colisão com a borda do mapa).
+const float g_MapHalfSize = 49.0f;
+
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
 
@@ -406,6 +421,29 @@ void SpawnDucks()
         d.scale = 3.5f;
         d.alive = true;
         g_Ducks.push_back(d);
+    }
+}
+
+// Cria as rochas (obstáculos) espalhadas pelo mapa.
+void SpawnObstacles()
+{
+    g_Obstacles.clear();
+    glm::vec4 spots[] = {
+        glm::vec4( 10.0f, 0.0f,  -8.0f, 1.0f),
+        glm::vec4(-14.0f, 0.0f,  12.0f, 1.0f),
+        glm::vec4( 22.0f, 0.0f,  20.0f, 1.0f),
+        glm::vec4(-25.0f, 0.0f, -18.0f, 1.0f),
+        glm::vec4(  5.0f, 0.0f,  28.0f, 1.0f),
+        glm::vec4(-30.0f, 0.0f,  30.0f, 1.0f),
+    };
+    float scales[] = { 2.5f, 3.5f, 2.0f, 4.0f, 3.0f, 2.2f };
+    for (int i = 0; i < 6; ++i)
+    {
+        Obstacle o;
+        o.pos    = spots[i];
+        o.scale  = scales[i];
+        o.radius = scales[i]; // raio de colisão ~ escala da esfera
+        g_Obstacles.push_back(o);
     }
 }
 
@@ -561,8 +599,16 @@ int main(int argc, char* argv[])
     ComputeNormals(&playermodel);
     BuildTrianglesAndAddToVirtualScene(&playermodel);
 
+    // Modelo usado como obstáculo (rocha).
+    ObjModel spheremodel("../../data/sphere.obj");
+    ComputeNormals(&spheremodel);
+    BuildTrianglesAndAddToVirtualScene(&spheremodel);
+
     // Criamos os patos da cena (instâncias com trajetórias linear e Bézier).
     SpawnDucks();
+
+    // Criamos os obstáculos (rochas) com os quais o jogador colide.
+    SpawnObstacles();
 
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
@@ -637,6 +683,31 @@ int main(int argc, char* argv[])
         if (norm(move) > 1e-6f)
             g_PlayerPosition += (move / norm(move)) * player_speed * g_DeltaTime;
 
+        // ===================== Colisões do jogador =====================
+        // (1) Limites do mapa: o jogador não pode sair do terreno.
+        if (g_PlayerPosition.x >  g_MapHalfSize) g_PlayerPosition.x =  g_MapHalfSize;
+        if (g_PlayerPosition.x < -g_MapHalfSize) g_PlayerPosition.x = -g_MapHalfSize;
+        if (g_PlayerPosition.z >  g_MapHalfSize) g_PlayerPosition.z =  g_MapHalfSize;
+        if (g_PlayerPosition.z < -g_MapHalfSize) g_PlayerPosition.z = -g_MapHalfSize;
+
+        // (2) Obstáculos (rochas): teste de interseção círculo-círculo no plano
+        // XZ. Se o jogador penetra o raio de um obstáculo, ele é empurrado para
+        // fora (impedindo atravessar a rocha).
+        const float player_radius = 0.8f;
+        for (size_t i = 0; i < g_Obstacles.size(); ++i)
+        {
+            float dx = g_PlayerPosition.x - g_Obstacles[i].pos.x;
+            float dz = g_PlayerPosition.z - g_Obstacles[i].pos.z;
+            float dist = sqrtf(dx*dx + dz*dz);
+            float min_dist = g_Obstacles[i].radius + player_radius;
+            if (dist < min_dist && dist > 1e-4f)
+            {
+                float push = (min_dist - dist) / dist;
+                g_PlayerPosition.x += dx * push;
+                g_PlayerPosition.z += dz * push;
+            }
+        }
+
         // ===================== Definição da câmera virtual =====================
         // Implementamos dois tipos de câmera bem distintos (requisito do trabalho):
         //  - 1a pessoa: câmera LIVRE posicionada nos "olhos" do jogador.
@@ -706,9 +777,10 @@ int main(int argc, char* argv[])
 
         // Identificadores de cada tipo de objeto (devem casar com os #define do
         // arquivo shader_fragment.glsl).
-        #define GROUND 0
-        #define DUCK   1
-        #define PLAYER 2
+        #define GROUND   0
+        #define DUCK     1
+        #define PLAYER   2
+        #define OBSTACLE 3
 
         // ---- Chão ----
         // O plano "the_plane" é 2x2 em XZ; escalamos para cobrir um grande
@@ -801,6 +873,19 @@ int main(int argc, char* argv[])
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, PLAYER);
             DrawVirtualObject("the_bunny");
+        }
+
+        // ---- Obstáculos (rochas) ----
+        // Cada rocha é uma instância da esfera (raio ~1, centrada na origem);
+        // posicionamos o centro em y=escala para a esfera repousar sobre o chão.
+        glUniform1i(g_object_id_uniform, OBSTACLE);
+        for (size_t i = 0; i < g_Obstacles.size(); ++i)
+        {
+            float s = g_Obstacles[i].scale;
+            model = Matrix_Translate(g_Obstacles[i].pos.x, s, g_Obstacles[i].pos.z)
+                  * Matrix_Scale(s, s, s);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            DrawVirtualObject("the_sphere");
         }
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.

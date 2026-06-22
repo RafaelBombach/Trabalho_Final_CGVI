@@ -15,9 +15,10 @@ uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento.
 // DEVE casar com os #define correspondentes em "main.cpp".
-#define GROUND 0
-#define DUCK   1
-#define PLAYER 2
+#define GROUND   0
+#define DUCK     1
+#define PLAYER   2
+#define OBSTACLE 3
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -61,6 +62,20 @@ void main()
         // terreno e evitar que a imagem fique esticada sobre um chão grande.
         uv = texcoords * 25.0;
         Kd = texture(TextureImage1, uv).rgb;
+        Ks = vec3(0.05);
+        shininess = 8.0;
+    }
+    else if ( object_id == OBSTACLE )
+    {
+        // A esfera não possui coordenadas de textura no OBJ; geramos UV por
+        // projeção esférica em coordenadas do modelo (centrada na bbox).
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+        vec4 d = position_model - bbox_center;
+        float rho   = length(vec3(d.x, d.y, d.z));
+        float theta = atan(d.x, d.z);
+        float phi   = asin(d.y / rho);
+        uv = vec2((theta + M_PI) / (2.0*M_PI), (phi + M_PI/2.0) / M_PI);
+        Kd = texture(TextureImage1, uv).rgb; // textura de terreno rochoso
         Ks = vec3(0.05);
         shininess = 8.0;
     }
