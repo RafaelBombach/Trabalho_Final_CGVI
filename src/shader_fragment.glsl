@@ -36,6 +36,7 @@ uniform sampler2D TextureImage3; // grama (difusa)
 uniform sampler2D TextureImage4; // grama (opacidade)
 uniform sampler2D TextureImage5; // tronco (casca)
 uniform sampler2D TextureImage6; // folhas (RGBA)
+uniform sampler2D TextureImage7; // chão (terreno de floresta)
 
 // Cor final do fragmento
 out vec4 color;
@@ -66,9 +67,10 @@ void main()
     if ( object_id == GROUND )
     {
         // O plano possui UV em [0,1]; multiplicamos para "tilear" a textura do
-        // terreno e evitar que a imagem fique esticada sobre um chão grande.
-        uv = texcoords * 25.0;
-        Kd = texture(TextureImage1, uv).rgb;
+        // terreno de floresta. Um fator menor deixa o padrão maior e mais
+        // visível (com fator muito alto o padrão some no mipmap).
+        uv = texcoords * 8.0;
+        Kd = texture(TextureImage7, uv).rgb;
         Ks = vec3(0.05);
         shininess = 8.0;
     }

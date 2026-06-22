@@ -738,6 +738,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/graeser_mischung_opacity.jpg"); // TextureImage4 - grama (opacidade)
     LoadTextureImage("../../data/sugar_maple_bark.jpg");         // TextureImage5 - tronco (casca)
     LoadTextureImage("../../data/sugar_maple_leaf.png", true);   // TextureImage6 - folhas (RGBA, com alpha)
+    LoadTextureImage("../../data/chao_base.jpeg");               // TextureImage7 - chão (terreno de floresta)
 
     // Construímos a representação dos objetos geométricos (malhas de triângulos).
     ObjModel patomodel("../../data/pato.obj");
@@ -1340,6 +1341,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage4"), 4);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage5"), 5);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage7"), 7);
     glUseProgram(0);
 }
 

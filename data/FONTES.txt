@@ -8,3 +8,7 @@ https://polyhaven.com/a/red_brick
 # modelo: sugar_maple_bark.jpg, sugar_maple_leaf.png.
 # TODO (preencher pela dupla): URL/origem exata do modelo do pato (pato.obj) e
 # da grama (Gras.obj).
+
+# Textura do chao (chao_base.jpeg): textura "Base" do asset de chao (modelo
+# "Grass test") que a dupla baixou (pasta chao/).
+# TODO (preencher pela dupla): URL/origem exata desse asset de chao.

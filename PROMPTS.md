@@ -207,6 +207,22 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 ---
 
+## Etapa 7 — Textura do chão (terreno de floresta)
+
+**Prompt (resumo da instrução dada à IA):**
+
+> O chão parecia uma cor verde chapada (a textura rocky_terrain tem cor média
+> oliva e, com tiling alto, o padrão sumia no mipmap). Usar a textura "Base" do
+> asset de chão da pasta chao/ (um terreno de floresta com terra e tufos de
+> grama). Carregá-la como uma textura separada (TextureImage7) só para o chão,
+> mantendo a textura rochosa nas pedras, e reduzir o tiling para o padrão ficar
+> visível.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`,
+`data/chao_base.jpeg`, `data/FONTES.txt`.
+
+---
+
 ## Etapa 6.3 — Reverter as alterações das folhas (6.1 e 6.2)
 
 **Prompt (resumo da instrução dada à IA):**
