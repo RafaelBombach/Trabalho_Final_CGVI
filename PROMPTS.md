@@ -255,6 +255,21 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 ---
 
+## Etapa 10 — Mover testes de colisão para collisions.cpp
+
+**Prompt (resumo da instrução dada à IA):**
+
+> O enunciado exige que os testes de colisão fiquem em um arquivo separado
+> chamado collisions.cpp. Extrair os testes de interseção (raio-esfera usada no
+> tiro/picking e bloqueio; e a colisão círculo-círculo no plano XZ do jogador
+> com pedras e árvores) de main.cpp para collisions.cpp (+ collisions.h), sem
+> mudar o comportamento, e fazer main.cpp chamar essas funções.
+
+**Arquivos afetados:** `src/main.cpp`, `src/collisions.cpp`,
+`include/collisions.h`, `CMakeLists.txt`.
+
+---
+
 ## Etapa 6.3 — Reverter as alterações das folhas (6.1 e 6.2)
 
 **Prompt (resumo da instrução dada à IA):**

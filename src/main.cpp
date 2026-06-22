@@ -52,6 +52,7 @@
 // Headers locais, definidos na pasta "include/"
 #include "utils.h"
 #include "matrices.h"
+#include "collisions.h" // testes de colisão/interseção (implementados em collisions.cpp)
 
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
@@ -605,20 +606,9 @@ void Shoot()
         // facilitar a mira). O modelo tem ~0.5 un, escalado por d.scale.
         float r = d.scale * 0.6f;
 
-        // Interseção raio-esfera. Com D normalizado, resolvemos
-        //   t^2 + 2b t + c = 0,  b = dot(oc,D),  c = dot(oc,oc) - r^2
-        glm::vec4 oc = O - d.worldPos; // vetor (w=0, pois são dois pontos)
-        float b = dotproduct(oc, D);
-        float c = dotproduct(oc, oc) - r*r;
-        float disc = b*b - c;
-        if (disc < 0.0f)
-            continue; // o raio não toca a esfera
-
-        float sq = sqrtf(disc);
-        float t0 = -b - sq;
-        float t1 = -b + sq;
-        float t = (t0 > 0.0f) ? t0 : t1; // primeira interseção à frente
-        if (t > 0.0f && t < best_t)
+        // Interseção raio-esfera (ver collisions.cpp).
+        float t;
+        if (RaySphereIntersect(O, D, d.worldPos, r, &t) && t < best_t)
         {
             best_t = t;
             best_i = (int)i;
@@ -633,18 +623,8 @@ void Shoot()
     {
         glm::vec4 center = glm::vec4(g_Obstacles[i].pos.x, g_Obstacles[i].drawY,
                                      g_Obstacles[i].pos.z, 1.0f);
-        float r = g_Obstacles[i].scale;
-        glm::vec4 oc = O - center; // w=0 (dois pontos)
-        float b = dotproduct(oc, D);
-        float c = dotproduct(oc, oc) - r*r;
-        float disc = b*b - c;
-        if (disc < 0.0f)
-            continue;
-        float sq = sqrtf(disc);
-        float t0 = -b - sq;
-        float t1 = -b + sq;
-        float t = (t0 > 0.0f) ? t0 : t1;
-        if (t > 0.0f && t < obstacle_t)
+        float t;
+        if (RaySphereIntersect(O, D, center, g_Obstacles[i].scale, &t) && t < obstacle_t)
             obstacle_t = t;
     }
 
@@ -654,18 +634,8 @@ void Shoot()
     {
         float s = g_Trees[i].scale;
         glm::vec4 center = glm::vec4(g_Trees[i].x, 200.0f * s, g_Trees[i].z, 1.0f);
-        float r = 95.0f * s;
-        glm::vec4 oc = O - center;
-        float b = dotproduct(oc, D);
-        float c = dotproduct(oc, oc) - r*r;
-        float disc = b*b - c;
-        if (disc < 0.0f)
-            continue;
-        float sq = sqrtf(disc);
-        float t0 = -b - sq;
-        float t1 = -b + sq;
-        float t = (t0 > 0.0f) ? t0 : t1;
-        if (t > 0.0f && t < obstacle_t)
+        float t;
+        if (RaySphereIntersect(O, D, center, 95.0f * s, &t) && t < obstacle_t)
             obstacle_t = t;
     }
 
@@ -917,37 +887,24 @@ int main(int argc, char* argv[])
         if (g_PlayerPosition.z < -g_MapHalfSize) g_PlayerPosition.z = -g_MapHalfSize;
 
         // (2) Obstáculos (rochas): teste de interseção círculo-círculo no plano
-        // XZ. Se o jogador penetra o raio de um obstáculo, ele é empurrado para
-        // fora (impedindo atravessar a rocha).
+        // XZ (ver collisions.cpp). Se o jogador penetra o raio de um obstáculo,
+        // ele é empurrado para fora (impedindo atravessar a rocha).
         const float player_radius = 0.8f;
         for (size_t i = 0; i < g_Obstacles.size(); ++i)
         {
-            float dx = g_PlayerPosition.x - g_Obstacles[i].pos.x;
-            float dz = g_PlayerPosition.z - g_Obstacles[i].pos.z;
-            float dist = sqrtf(dx*dx + dz*dz);
-            float min_dist = g_Obstacles[i].radius + player_radius;
-            if (dist < min_dist && dist > 1e-4f)
-            {
-                float push = (min_dist - dist) / dist;
-                g_PlayerPosition.x += dx * push;
-                g_PlayerPosition.z += dz * push;
-            }
+            ResolveCircleCollisionXZ(&g_PlayerPosition.x, &g_PlayerPosition.z,
+                                     player_radius,
+                                     g_Obstacles[i].pos.x, g_Obstacles[i].pos.z,
+                                     g_Obstacles[i].radius);
         }
 
         // (3) Troncos das árvores: colisão círculo-círculo (o tronco é fino).
         const float trunk_radius = 1.3f;
         for (size_t i = 0; i < g_Trees.size(); ++i)
         {
-            float dx = g_PlayerPosition.x - g_Trees[i].x;
-            float dz = g_PlayerPosition.z - g_Trees[i].z;
-            float dist = sqrtf(dx*dx + dz*dz);
-            float min_dist = trunk_radius + player_radius;
-            if (dist < min_dist && dist > 1e-4f)
-            {
-                float push = (min_dist - dist) / dist;
-                g_PlayerPosition.x += dx * push;
-                g_PlayerPosition.z += dz * push;
-            }
+            ResolveCircleCollisionXZ(&g_PlayerPosition.x, &g_PlayerPosition.z,
+                                     player_radius,
+                                     g_Trees[i].x, g_Trees[i].z, trunk_radius);
         }
 
         // ===================== Definição da câmera virtual =====================
