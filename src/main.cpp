@@ -1228,13 +1228,34 @@ void LoadTextureImage(const char* filename, bool with_alpha)
     glGenTextures(1, &texture_id);
     glGenSamplers(1, &sampler_id);
 
-    // Veja slides 95-96 do documento Aula_20_Mapeamento_de_Texturas.pdf
-    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // Modo de wrap: as texturas opacas usam GL_REPEAT para que possam ser
+    // "tileadas" (ex.: o chão, cuja UV vai de 0 a 8). As texturas de recorte
+    // (folhagem) usam GL_CLAMP_TO_EDGE para evitar bleeding nas bordas dos cards.
+    GLint wrap_mode = with_alpha ? GL_CLAMP_TO_EDGE : GL_REPEAT;
+    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, wrap_mode);
+    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, wrap_mode);
 
     // Parâmetros de amostragem da textura.
     glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glSamplerParameteri(sampler_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Filtragem anisotrópica APENAS nas texturas opacas: mantém o chão (e
+    // pedras) nítido em ângulos rasantes / à distância. Sem isso, o filtro
+    // trilinear deixa o chão nítido perto e borrado longe, criando um "disco"
+    // de detalhe que parece acompanhar o jogador. NÃO aplicamos nas texturas de
+    // recorte (folhas), pois a anisotropia mistura folha+céu e as faz sumir.
+    if (!with_alpha)
+    {
+        #ifndef GL_TEXTURE_MAX_ANISOTROPY
+        #define GL_TEXTURE_MAX_ANISOTROPY 0x84FE
+        #endif
+        #ifndef GL_MAX_TEXTURE_MAX_ANISOTROPY
+        #define GL_MAX_TEXTURE_MAX_ANISOTROPY 0x84FF
+        #endif
+        GLfloat max_aniso = 1.0f;
+        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_aniso);
+        glSamplerParameterf(sampler_id, GL_TEXTURE_MAX_ANISOTROPY, max_aniso);
+    }
 
     // Agora enviamos a imagem lida do disco para a GPU
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
