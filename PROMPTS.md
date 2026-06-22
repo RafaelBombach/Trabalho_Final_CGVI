@@ -188,3 +188,19 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > manter mais área de folha.
 
 **Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.
+
+---
+
+## Etapa 6.2 — Copa cheia: núcleo opaco e alpha nítido nas folhas
+
+**Prompt (resumo da instrução dada à IA):**
+
+> A correção anterior piorou: vista de baixo, a copa quase sumia. Causa: mipmap
+> + anisotropia em textura de recorte, em ângulo rasante, misturam folha+céu e
+> derrubam o alpha. Correção: nas texturas com alpha (folhagem), usar filtro
+> LINEAR sem mipmap e sem anisotropia (alpha nítido); manter mipmap/anisotropia
+> apenas nas texturas opacas. Além disso, adicionar uma copa opaca interna
+> (elipsoide verde, um pouco menor que a extensão das folhas) por baixo das
+> folhas, para que não se veja o céu através/por baixo da árvore.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.

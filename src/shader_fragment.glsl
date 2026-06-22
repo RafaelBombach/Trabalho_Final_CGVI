@@ -22,6 +22,7 @@ uniform mat4 projection;
 #define GRASS    4
 #define TREE_TRUNK  5
 #define TREE_LEAVES 6
+#define CANOPY      7
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -89,13 +90,20 @@ void main()
         Ks = vec3(0.05);
         shininess = 8.0;
     }
+    else if ( object_id == CANOPY )
+    {
+        // Massa opaca interna da copa: preenche os vãos entre as folhas para
+        // que não se veja o céu por baixo/através da árvore. Verde escuro de
+        // folhagem, com iluminação suave.
+        Kd = vec3(0.10, 0.26, 0.09);
+        Ks = vec3(0.0);
+        shininess = 1.0;
+    }
     else if ( object_id == TREE_LEAVES )
     {
-        // Folhas recortadas pelo canal alpha da textura RGBA. Usamos um limiar
-        // mais baixo (0.3) para preservar mais área de folha, evitando que a
-        // folhagem "dissolva" em fios quando vista de baixo/longe.
+        // Folhas recortadas pelo canal alpha da textura RGBA.
         vec4 leaf = texture(TextureImage6, texcoords);
-        if (leaf.a < 0.3)
+        if (leaf.a < 0.5)
             discard;
         Kd = leaf.rgb;
         Ks = vec3(0.0);
