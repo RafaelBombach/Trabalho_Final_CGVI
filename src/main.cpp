@@ -230,7 +230,9 @@ float g_LastFrameTime = 0.0f; // Instante (s) em que o quadro anterior começou
 // Model matrix diferente. Há dois tipos de trajetória de voo:
 //   PATH_LINEAR - voo em linha reta atravessando o mapa.
 //   PATH_BEZIER - voo suave ao longo de uma curva de Bézier cúbica.
-enum DuckPath { PATH_LINEAR, PATH_BEZIER };
+//   PATH_BEZIER_CHAIN - Bézier composta (vários segmentos cúbicos encadeados),
+//                       permitindo trajetórias em zig-zag agudo.
+enum DuckPath { PATH_LINEAR, PATH_BEZIER, PATH_BEZIER_CHAIN };
 struct Duck
 {
     DuckPath  path;
@@ -238,8 +240,10 @@ struct Duck
     glm::vec4 start;
     glm::vec4 dir;
     float     range;
-    // Bézier: 4 pontos de controle da curva cúbica.
+    // Bézier simples: 4 pontos de controle da curva cúbica.
     glm::vec4 b0, b1, b2, b3;
+    // Bézier composta: lista de pontos de controle (3*nsegmentos + 1 pontos).
+    std::vector<glm::vec4> chain;
     // Comum:
     float param;     // parâmetro de avanço, acumulado por delta-time
     float speed;     // velocidade do avanço do parâmetro
@@ -291,6 +295,26 @@ glm::vec4 BezierTangent(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, 
     return (3.0f*u*u) * (p1 - p0)
          + (6.0f*u*t) * (p2 - p1)
          + (3.0f*t*t) * (p3 - p2);
+}
+
+// Monta uma Bézier composta a partir de uma lista de pontos-âncora. Os dois
+// pontos de controle internos de cada segmento são interpolados linearmente
+// (1/3 e 2/3) entre as âncoras, o que produz cantos agudos -> trajetória em
+// zig-zag. Retorna 3*nsegmentos + 1 pontos de controle.
+std::vector<glm::vec4> BuildBezierChain(const std::vector<glm::vec4>& anchors)
+{
+    std::vector<glm::vec4> cp;
+    for (size_t i = 0; i + 1 < anchors.size(); ++i)
+    {
+        glm::vec4 a = anchors[i];
+        glm::vec4 b = anchors[i+1];
+        if (i == 0)
+            cp.push_back(a);
+        cp.push_back(a + (b - a) * (1.0f/3.0f));
+        cp.push_back(a + (b - a) * (2.0f/3.0f));
+        cp.push_back(b);
+    }
+    return cp;
 }
 
 // Cria os patos da cena. Misturamos patos de voo linear e patos de voo por
@@ -349,6 +373,27 @@ void SpawnDucks()
         d.param = i * 0.17f;         // fase inicial (espalha ao longo das curvas)
         d.speed = 0.05f + i*0.01f;   // ciclos por segundo
         d.scale = 3.0f;
+        d.alive = true;
+        g_Ducks.push_back(d);
+    }
+
+    // --- Pato de voo em ZIG-ZAG agudo (Bézier composta de vários segmentos) ---
+    {
+        std::vector<glm::vec4> anchors = {
+            glm::vec4(-52, 11,   0, 1),
+            glm::vec4(-32, 11,  24, 1),
+            glm::vec4(-16, 11, -24, 1),
+            glm::vec4(  0, 11,  24, 1),
+            glm::vec4( 16, 11, -24, 1),
+            glm::vec4( 32, 11,  24, 1),
+            glm::vec4( 52, 11, -12, 1),
+        };
+        Duck d;
+        d.path  = PATH_BEZIER_CHAIN;
+        d.chain = BuildBezierChain(anchors);
+        d.param = 0.0f;
+        d.speed = 0.06f;
+        d.scale = 3.5f;
         d.alive = true;
         g_Ducks.push_back(d);
     }
@@ -565,7 +610,7 @@ int main(int argc, char* argv[])
         {
             // Projeção Perspectiva.
             // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
-            float field_of_view = 3.141592 / 3.0f;
+            float field_of_view = 3.141592 / 2.4f; // ~75 graus (campo de visão amplo)
             projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
         }
         else
@@ -627,11 +672,26 @@ int main(int argc, char* argv[])
                 pos = d.start + d.dir * d.param;
                 tangent = d.dir;
             }
-            else // PATH_BEZIER
+            else if (d.path == PATH_BEZIER)
             {
                 if (d.param > 1.0f) d.param -= 1.0f; // a curva é percorrida em loop
                 pos = BezierPoint(d.b0, d.b1, d.b2, d.b3, d.param);
                 tangent = BezierTangent(d.b0, d.b1, d.b2, d.b3, d.param);
+            }
+            else // PATH_BEZIER_CHAIN (Bézier composta: zig-zag)
+            {
+                if (d.param > 1.0f) d.param -= 1.0f;
+                int nseg = (int)(d.chain.size() - 1) / 3; // segmentos cúbicos
+                float tt = d.param * nseg;                // posição global na cadeia
+                int seg = (int)tt;
+                if (seg >= nseg) seg = nseg - 1;
+                float lt = tt - seg;                      // parâmetro local do segmento
+                glm::vec4 c0 = d.chain[3*seg + 0];
+                glm::vec4 c1 = d.chain[3*seg + 1];
+                glm::vec4 c2 = d.chain[3*seg + 2];
+                glm::vec4 c3 = d.chain[3*seg + 3];
+                pos = BezierPoint(c0, c1, c2, c3, lt);
+                tangent = BezierTangent(c0, c1, c2, c3, lt);
             }
 
             // Yaw a partir da componente horizontal da tangente (direção do voo).

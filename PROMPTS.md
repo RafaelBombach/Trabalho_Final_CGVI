@@ -73,3 +73,16 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > demais e a trajetória curva não era perceptível visualmente.
 
 **Arquivos afetados:** `src/main.cpp`.
+
+---
+
+## Etapa 2.2 — Campo de visão maior e pato em zig-zag (Bézier composta)
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Aumentar o campo de visão total (FOV). Adicionar um pato com trajetória em
+> zig-zag muito agudo. Como uma Bézier cúbica simples (4 pontos) só dobra uma
+> vez, implementar uma Bézier composta (vários segmentos cúbicos encadeados) com
+> cantos agudos para obter o zig-zag.
+
+**Arquivos afetados:** `src/main.cpp`.
