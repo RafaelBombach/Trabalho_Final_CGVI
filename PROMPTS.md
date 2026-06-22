@@ -29,3 +29,19 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 **Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`,
 `data/pato.*`.
+
+---
+
+## Etapa 1.1 — Ajustes: avatar do jogador, escala e alcance de visão
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Com base no feedback de teste: diminuir a escala do pato; aumentar o alcance
+> de visão (far plane estava em apenas 10 unidades, cortando o chão); e adicionar
+> um avatar visível para o jogador, pois na câmera de 3ª pessoa não havia nenhum
+> personagem físico para ver. Usar o modelo do coelho (`bunny.obj`) como
+> placeholder do jogador, texturizado (3ª imagem de textura) e posicionado sobre
+> o chão, girando para a direção em que o jogador olha; desenhá-lo apenas na
+> câmera de 3ª pessoa.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.

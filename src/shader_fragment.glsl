@@ -17,6 +17,7 @@ uniform mat4 projection;
 // DEVE casar com os #define correspondentes em "main.cpp".
 #define GROUND 0
 #define DUCK   1
+#define PLAYER 2
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -26,6 +27,7 @@ uniform vec4 bbox_max;
 // Imagens de textura
 uniform sampler2D TextureImage0; // pato
 uniform sampler2D TextureImage1; // chão
+uniform sampler2D TextureImage2; // jogador
 
 // Cor final do fragmento
 out vec4 color;
@@ -61,6 +63,17 @@ void main()
         Kd = texture(TextureImage1, uv).rgb;
         Ks = vec3(0.05);
         shininess = 8.0;
+    }
+    else if ( object_id == PLAYER )
+    {
+        // O modelo do jogador (coelho) não possui coordenadas de textura no
+        // arquivo OBJ; geramos UV por projeção planar XY em coordenadas do
+        // modelo, normalizadas pela bounding box.
+        float u = (position_model.x - bbox_min.x) / (bbox_max.x - bbox_min.x);
+        float w = (position_model.y - bbox_min.y) / (bbox_max.y - bbox_min.y);
+        Kd = texture(TextureImage2, vec2(u, w)).rgb;
+        Ks = vec3(0.1);
+        shininess = 16.0;
     }
     else // DUCK
     {

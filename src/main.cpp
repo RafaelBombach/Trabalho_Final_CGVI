@@ -324,6 +324,7 @@ int main(int argc, char* argv[])
     // associa a imagem a uma "texture unit" sequencial (TextureImage0, 1, ...).
     LoadTextureImage("../../data/pato_texture.jpeg");            // TextureImage0 - pato
     LoadTextureImage("../../data/rocky_terrain_02_diff_1k.jpg"); // TextureImage1 - chão
+    LoadTextureImage("../../data/red_brick_diff_1k.jpg");        // TextureImage2 - jogador
 
     // Construímos a representação dos objetos geométricos (malhas de triângulos).
     ObjModel patomodel("../../data/pato.obj");
@@ -333,6 +334,13 @@ int main(int argc, char* argv[])
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
+
+    // Modelo do jogador (avatar visível na câmera de 3a pessoa). Por enquanto
+    // usamos o coelho como placeholder; pode ser trocado por um modelo de
+    // caçador/arma futuramente.
+    ObjModel playermodel("../../data/bunny.obj");
+    ComputeNormals(&playermodel);
+    BuildTrianglesAndAddToVirtualScene(&playermodel);
 
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
@@ -436,8 +444,8 @@ int main(int argc, char* argv[])
 
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
-        float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -10.0f; // Posição do "far plane"
+        float nearplane = -0.1f;   // Posição do "near plane"
+        float farplane  = -300.0f; // Posição do "far plane" (alcance de visão)
 
         if (g_UsePerspectiveProjection)
         {
@@ -472,6 +480,7 @@ int main(int argc, char* argv[])
         // arquivo shader_fragment.glsl).
         #define GROUND 0
         #define DUCK   1
+        #define PLAYER 2
 
         // ---- Chão ----
         // O plano "the_plane" é 2x2 em XZ; escalamos para cobrir um grande
@@ -489,10 +498,27 @@ int main(int argc, char* argv[])
         float t = (float)glfwGetTime();
         model = Matrix_Translate(0.0f, 3.0f, -6.0f)
               * Matrix_Rotate_Y(t * 0.8f)
-              * Matrix_Scale(6.0f, 6.0f, 6.0f);
+              * Matrix_Scale(3.5f, 3.5f, 3.5f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, DUCK);
         DrawVirtualObject("0"); // nome do shape dentro de pato.obj
+
+        // ---- Jogador (avatar) ----
+        // Desenhamos o corpo do jogador apenas na câmera de 3a pessoa (na 1a
+        // pessoa a câmera está "dentro" dele). O avatar é posicionado em
+        // g_PlayerPosition e girado para a direção em que o jogador olha (yaw).
+        if (g_CameraMode == CAMERA_THIRD_PERSON)
+        {
+            // O coelho tem ~2 un de altura e é centrado na origem; com escala
+            // 0.9 ele fica ~1.8 un (altura humana). Somamos 0.9*0.991 em Y para
+            // que os "pés" fiquem sobre o chão (y=0).
+            model = Matrix_Translate(g_PlayerPosition.x, g_PlayerPosition.y + 0.89f, g_PlayerPosition.z)
+                  * Matrix_Rotate_Y(g_CameraTheta)
+                  * Matrix_Scale(0.9f, 0.9f, 0.9f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, PLAYER);
+            DrawVirtualObject("the_bunny");
+        }
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
