@@ -248,10 +248,22 @@ struct Duck
     float param;     // parâmetro de avanço, acumulado por delta-time
     float speed;     // velocidade do avanço do parâmetro
     float scale;     // escala do modelo
-    bool  alive;     // false quando abatido (some até reaparecer)
     glm::vec4 worldPos = glm::vec4(0.0f,0.0f,0.0f,1.0f); // posição atual no mundo (p/ o tiro)
-    float respawnAt = 0.0f; // instante (s) em que o pato reaparece após ser abatido
+    float respawnAt = 0.0f; // instante (s) em que o pato reaparece após cair
+
+    // Estado do pato: voando (alvo válido), caindo (abatido, despencando) ou
+    // morto (escondido até reaparecer).
+    int   state = 0; // 0 = voando, 1 = caindo, 2 = morto
+    glm::vec4 fwd   = glm::vec4(0.0f,0.0f,1.0f,0.0f); // direção horizontal do voo (p/ a queda)
+    float lastYaw = 0.0f;     // yaw no instante do abate (mantém a direção ao cair)
+    glm::vec4 fallPos = glm::vec4(0.0f,0.0f,0.0f,1.0f); // posição durante a queda
+    glm::vec4 fallVel = glm::vec4(0.0f,0.0f,0.0f,0.0f); // velocidade durante a queda
+    float fallSpin = 0.0f;    // ângulo de tombamento acumulado durante a queda
 };
+// Estados possíveis de um pato.
+#define DUCK_FLYING  0
+#define DUCK_FALLING 1
+#define DUCK_DEAD    2
 std::vector<Duck> g_Ducks;
 
 // Ajuste de orientação do modelo do pato: o bico do modelo aponta para -X (e
@@ -407,7 +419,7 @@ void SpawnDucks()
         d.param = i * 25.0f;               // fase inicial (espalha os patos)
         d.speed = 4.0f + i * 0.6f;         // unidades por segundo
         d.scale = 3.0f;
-        d.alive = true;
+        d.state = DUCK_FLYING;
         g_Ducks.push_back(d);
     }
 
@@ -444,7 +456,7 @@ void SpawnDucks()
         d.param = i * 0.17f;         // fase inicial (espalha ao longo das curvas)
         d.speed = 0.05f + i*0.01f;   // ciclos por segundo
         d.scale = 3.0f;
-        d.alive = true;
+        d.state = DUCK_FLYING;
         g_Ducks.push_back(d);
     }
 
@@ -465,7 +477,7 @@ void SpawnDucks()
         d.param = 0.0f;
         d.speed = 0.06f;
         d.scale = 3.5f;
-        d.alive = true;
+        d.state = DUCK_FLYING;
         g_Ducks.push_back(d);
     }
 }
@@ -567,7 +579,7 @@ void Shoot()
     for (size_t i = 0; i < g_Ducks.size(); ++i)
     {
         Duck& d = g_Ducks[i];
-        if (!d.alive)
+        if (d.state != DUCK_FLYING) // só patos voando podem ser atingidos
             continue;
 
         // Raio de colisão da esfera envolvente do pato (um pouco generoso para
@@ -640,8 +652,15 @@ void Shoot()
 
     if (best_i >= 0 && best_t < obstacle_t)
     {
-        g_Ducks[best_i].alive = false;
-        g_Ducks[best_i].respawnAt = (float)glfwGetTime() + 3.0f; // reaparece em 3s
+        // Pato atingido: inicia a QUEDA (em vez de sumir na hora). Despenca a
+        // partir da posição atual, com inércia horizontal do voo e um pequeno
+        // impulso para cima, tombando enquanto cai.
+        Duck& d = g_Ducks[best_i];
+        d.state    = DUCK_FALLING;
+        d.fallPos  = d.worldPos;
+        d.fallVel  = d.fwd * 4.0f;       // inércia horizontal na direção do voo
+        d.fallVel.y = 2.0f;              // pequeno "tranco" para cima
+        d.fallSpin = 0.0f;
         g_Score += 1;
         printf("HIT! Pontos: %d\n", g_Score);
         fflush(stdout);
@@ -996,15 +1015,42 @@ int main(int argc, char* argv[])
         for (size_t i = 0; i < g_Ducks.size(); ++i)
         {
             Duck& d = g_Ducks[i];
-            if (!d.alive)
+
+            // --- Pato MORTO: escondido até reaparecer ---
+            if (d.state == DUCK_DEAD)
             {
-                // Pato abatido: reaparece quando o tempo de respawn é atingido.
                 if ((float)glfwGetTime() >= d.respawnAt)
-                    d.alive = true;
+                    d.state = DUCK_FLYING;
                 else
                     continue;
             }
 
+            // --- Pato CAINDO: despenca com gravidade e tomba até o chão ---
+            if (d.state == DUCK_FALLING)
+            {
+                d.fallVel.y -= 16.0f * g_DeltaTime;     // gravidade
+                d.fallPos   += d.fallVel * g_DeltaTime; // integra a posição
+                d.fallSpin  += 7.0f * g_DeltaTime;      // tombamento
+
+                const float ground_y = 0.4f; // altura do corpo ao tocar o chão
+                if (d.fallPos.y <= ground_y)
+                {
+                    d.state = DUCK_DEAD;
+                    d.respawnAt = (float)glfwGetTime() + 2.0f;
+                    continue; // some até reaparecer
+                }
+
+                model = Matrix_Translate(d.fallPos.x, d.fallPos.y, d.fallPos.z)
+                      * Matrix_Rotate_Y(d.lastYaw)
+                      * Matrix_Rotate_X(d.fallSpin)          // tombando ao cair
+                      * Matrix_Rotate_Y(g_DuckYawOffset)
+                      * Matrix_Scale(d.scale, d.scale, d.scale);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                DrawVirtualObject("0");
+                continue;
+            }
+
+            // --- Pato VOANDO: avança a trajetória ---
             d.param += d.speed * g_DeltaTime;
 
             glm::vec4 pos;
@@ -1052,6 +1098,12 @@ int main(int argc, char* argv[])
             float horiz = sqrtf(tangent.x*tangent.x + tangent.z*tangent.z);
             float yaw   = atan2f(tangent.x, tangent.z);
             float pitch = atan2f(tangent.y, horiz);
+
+            // Guardamos a direção horizontal e o yaw atuais: se o pato for
+            // abatido, a queda continua nessa direção, mantendo o sentido do voo.
+            d.fwd = (horiz > 1e-6f) ? glm::vec4(tangent.x/horiz, 0.0f, tangent.z/horiz, 0.0f)
+                                    : glm::vec4(0.0f,0.0f,1.0f,0.0f);
+            d.lastYaw = yaw;
 
             model = Matrix_Translate(pos.x, pos.y, pos.z)
                   * Matrix_Rotate_Y(yaw)

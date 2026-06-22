@@ -223,6 +223,20 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 ---
 
+## Etapa 8 — Polimento: pato cai ao ser atingido
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Em vez de o pato sumir na hora ao ser atingido, fazer ele cair: implementar uma
+> máquina de estados (voando -> caindo -> morto/respawn). Ao ser abatido, o pato
+> despenca a partir da posição do acerto, com gravidade e inércia horizontal do
+> voo, tombando (girando) enquanto cai; ao tocar o chão, some e reaparece após
+> alguns segundos. Tudo baseado em delta-time.
+
+**Arquivos afetados:** `src/main.cpp`.
+
+---
+
 ## Etapa 6.3 — Reverter as alterações das folhas (6.1 e 6.2)
 
 **Prompt (resumo da instrução dada à IA):**
