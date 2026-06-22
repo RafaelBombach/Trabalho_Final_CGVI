@@ -45,3 +45,18 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > câmera de 3ª pessoa.
 
 **Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.
+
+---
+
+## Etapa 2 — Patos voando: instâncias + curva de Bézier cúbica
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Implementar os patos voando como múltiplas INSTÂNCIAS do mesmo modelo (mesmo
+> VBO, Model matrices diferentes). Parte dos patos deve voar em linha reta
+> atravessando o mapa, e parte deve voar de forma suave ao longo de uma curva de
+> Bézier cúbica (com 4 pontos de controle), orientando-se na direção do
+> movimento (tangente da curva). Toda a movimentação baseada em delta-time.
+> Depois, a partir do feedback de teste, reduzir a velocidade dos patos.
+
+**Arquivos afetados:** `src/main.cpp`.

@@ -225,6 +225,33 @@ bool g_KeyD = false;
 float g_DeltaTime    = 0.0f; // Tempo (s) entre o quadro atual e o anterior
 float g_LastFrameTime = 0.0f; // Instante (s) em que o quadro anterior começou
 
+// ---- Patos (instâncias) ----
+// Cada pato é uma INSTÂNCIA do mesmo modelo (mesmo VBO), desenhada com uma
+// Model matrix diferente. Há dois tipos de trajetória de voo:
+//   PATH_LINEAR - voo em linha reta atravessando o mapa.
+//   PATH_BEZIER - voo suave ao longo de uma curva de Bézier cúbica.
+enum DuckPath { PATH_LINEAR, PATH_BEZIER };
+struct Duck
+{
+    DuckPath  path;
+    // Linear: começa em 'start' e anda na direção 'dir' por 'range' unidades.
+    glm::vec4 start;
+    glm::vec4 dir;
+    float     range;
+    // Bézier: 4 pontos de controle da curva cúbica.
+    glm::vec4 b0, b1, b2, b3;
+    // Comum:
+    float param;     // parâmetro de avanço, acumulado por delta-time
+    float speed;     // velocidade do avanço do parâmetro
+    float scale;     // escala do modelo
+    bool  alive;     // usado futuramente pela lógica de tiro
+};
+std::vector<Duck> g_Ducks;
+
+// Ajuste de orientação do modelo do pato (caso o .obj não "olhe" para +Z).
+// Pode ser alterado para girar todos os patos de uma vez.
+float g_DuckYawOffset = 0.0f;
+
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
 
@@ -242,6 +269,75 @@ GLint g_bbox_max_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
+
+// Avalia um ponto da curva de Bézier cúbica definida pelos pontos de controle
+// p0..p3, no parâmetro t em [0,1].
+//   B(t) = (1-t)^3 p0 + 3(1-t)^2 t p1 + 3(1-t) t^2 p2 + t^3 p3
+glm::vec4 BezierPoint(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, float t)
+{
+    float u = 1.0f - t;
+    return (u*u*u) * p0
+         + (3.0f*u*u*t) * p1
+         + (3.0f*u*t*t) * p2
+         + (t*t*t) * p3;
+}
+
+// Vetor tangente (derivada) da curva de Bézier cúbica no parâmetro t. Usado
+// para orientar o pato na direção do movimento.
+//   B'(t) = 3(1-t)^2 (p1-p0) + 6(1-t)t (p2-p1) + 3t^2 (p3-p2)
+glm::vec4 BezierTangent(glm::vec4 p0, glm::vec4 p1, glm::vec4 p2, glm::vec4 p3, float t)
+{
+    float u = 1.0f - t;
+    return (3.0f*u*u) * (p1 - p0)
+         + (6.0f*u*t) * (p2 - p1)
+         + (3.0f*t*t) * (p3 - p2);
+}
+
+// Cria os patos da cena. Misturamos patos de voo linear e patos de voo por
+// curva de Bézier cúbica, em diferentes altitudes e com fases distintas.
+void SpawnDucks()
+{
+    g_Ducks.clear();
+
+    // --- Patos de voo LINEAR (atravessam o mapa) ---
+    for (int i = 0; i < 4; ++i)
+    {
+        Duck d;
+        d.path  = PATH_LINEAR;
+        float z = -30.0f + i * 18.0f;     // faixas de Z diferentes
+        float y = 6.0f + (i % 2) * 3.0f;  // altitudes alternadas
+        d.start = glm::vec4(-55.0f, y, z, 1.0f);
+        d.dir   = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f); // voa no sentido +X
+        d.range = 110.0f;                  // atravessa e reaparece do outro lado
+        d.param = i * 25.0f;               // fase inicial (espalha os patos)
+        d.speed = 4.0f + i * 0.6f;         // unidades por segundo
+        d.scale = 3.0f;
+        d.alive = true;
+        g_Ducks.push_back(d);
+    }
+
+    // --- Patos de voo por curva de BÉZIER cúbica (caminho curvo e suave) ---
+    glm::vec4 curves[3][4] = {
+        { glm::vec4(-40,  5, -20, 1), glm::vec4(-15, 14,  30, 1),
+          glm::vec4( 15, 14, -30, 1), glm::vec4( 40,  5,  20, 1) },
+        { glm::vec4( 45,  7,  35, 1), glm::vec4( 10, 16,  10, 1),
+          glm::vec4(-10, 16, -10, 1), glm::vec4(-45,  7, -35, 1) },
+        { glm::vec4(-35, 10,  40, 1), glm::vec4(  0, 18,  15, 1),
+          glm::vec4(  0, 18, -15, 1), glm::vec4( 35, 10, -40, 1) },
+    };
+    for (int i = 0; i < 3; ++i)
+    {
+        Duck d;
+        d.path  = PATH_BEZIER;
+        d.b0 = curves[i][0]; d.b1 = curves[i][1];
+        d.b2 = curves[i][2]; d.b3 = curves[i][3];
+        d.param = i * 0.3f;          // fase inicial
+        d.speed = 0.04f + i*0.012f;  // ciclos por segundo (mais lento = curva longa)
+        d.scale = 3.0f;
+        d.alive = true;
+        g_Ducks.push_back(d);
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -341,6 +437,9 @@ int main(int argc, char* argv[])
     ObjModel playermodel("../../data/bunny.obj");
     ComputeNormals(&playermodel);
     BuildTrianglesAndAddToVirtualScene(&playermodel);
+
+    // Criamos os patos da cena (instâncias com trajetórias linear e Bézier).
+    SpawnDucks();
 
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
@@ -491,17 +590,44 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, GROUND);
         DrawVirtualObject("the_plane");
 
-        // ---- Pato ----
-        // O modelo do pato é pequeno (~0.5 un); escalamos e posicionamos no ar.
-        // Por enquanto ele apenas gira lentamente (animação por tempo); a lógica
-        // de voo será adicionada nas próximas etapas.
-        float t = (float)glfwGetTime();
-        model = Matrix_Translate(0.0f, 3.0f, -6.0f)
-              * Matrix_Rotate_Y(t * 0.8f)
-              * Matrix_Scale(3.5f, 3.5f, 3.5f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        // ---- Patos (instâncias) ----
+        // Cada pato avança sua trajetória com base no delta-time. A posição e a
+        // orientação (yaw, alinhada à direção do movimento) definem a Model
+        // matrix daquela instância. Todos compartilham o mesmo VBO ("0").
         glUniform1i(g_object_id_uniform, DUCK);
-        DrawVirtualObject("0"); // nome do shape dentro de pato.obj
+        for (size_t i = 0; i < g_Ducks.size(); ++i)
+        {
+            Duck& d = g_Ducks[i];
+            if (!d.alive)
+                continue;
+
+            d.param += d.speed * g_DeltaTime;
+
+            glm::vec4 pos;
+            glm::vec4 tangent;
+
+            if (d.path == PATH_LINEAR)
+            {
+                if (d.param > d.range) d.param -= d.range; // reaparece do início
+                pos = d.start + d.dir * d.param;
+                tangent = d.dir;
+            }
+            else // PATH_BEZIER
+            {
+                if (d.param > 1.0f) d.param -= 1.0f; // a curva é percorrida em loop
+                pos = BezierPoint(d.b0, d.b1, d.b2, d.b3, d.param);
+                tangent = BezierTangent(d.b0, d.b1, d.b2, d.b3, d.param);
+            }
+
+            // Yaw a partir da componente horizontal da tangente (direção do voo).
+            float yaw = atan2f(tangent.x, tangent.z);
+
+            model = Matrix_Translate(pos.x, pos.y, pos.z)
+                  * Matrix_Rotate_Y(yaw + g_DuckYawOffset)
+                  * Matrix_Scale(d.scale, d.scale, d.scale);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            DrawVirtualObject("0"); // nome do shape dentro de pato.obj
+        }
 
         // ---- Jogador (avatar) ----
         // Desenhamos o corpo do jogador apenas na câmera de 3a pessoa (na 1a
