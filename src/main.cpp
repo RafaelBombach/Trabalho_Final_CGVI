@@ -271,9 +271,10 @@ int g_Score = 0;
 // instância da esfera, com posição no chão e um raio de colisão (em XZ).
 struct Obstacle
 {
-    glm::vec4 pos;   // centro na base (y = 0)
-    float     scale; // escala do modelo da esfera
+    glm::vec4 pos;   // posição no plano (x, z); y não é usado aqui
+    float     scale; // escala (raio) do modelo da esfera
     float     radius;// raio de colisão no plano XZ
+    float     drawY; // altura do CENTRO da esfera ao desenhar (negativa = enterrada)
 };
 std::vector<Obstacle> g_Obstacles;
 
@@ -424,26 +425,45 @@ void SpawnDucks()
     }
 }
 
-// Cria as rochas (obstáculos) espalhadas pelo mapa.
+// Cria as rochas (obstáculos): algumas espalhadas pelo mapa e uma muralha de
+// pedras ao redor da borda. As pedras ficam parcialmente enterradas (centro
+// abaixo do solo) para parecerem rochas naturais, e não esferas/bolas.
 void SpawnObstacles()
 {
     g_Obstacles.clear();
-    glm::vec4 spots[] = {
-        glm::vec4( 10.0f, 0.0f,  -8.0f, 1.0f),
-        glm::vec4(-14.0f, 0.0f,  12.0f, 1.0f),
-        glm::vec4( 22.0f, 0.0f,  20.0f, 1.0f),
-        glm::vec4(-25.0f, 0.0f, -18.0f, 1.0f),
-        glm::vec4(  5.0f, 0.0f,  28.0f, 1.0f),
-        glm::vec4(-30.0f, 0.0f,  30.0f, 1.0f),
-    };
-    float scales[] = { 2.5f, 3.5f, 2.0f, 4.0f, 3.0f, 2.2f };
-    for (int i = 0; i < 6; ++i)
+
+    // Função auxiliar que adiciona uma rocha. drawY negativo enterra ~30% do
+    // raio no chão, deixando à mostra uma calota arredondada.
+    auto addRock = [&](float x, float z, float scale)
     {
         Obstacle o;
-        o.pos    = spots[i];
-        o.scale  = scales[i];
-        o.radius = scales[i]; // raio de colisão ~ escala da esfera
+        o.pos    = glm::vec4(x, 0.0f, z, 1.0f);
+        o.scale  = scale;
+        o.radius = scale;             // raio de colisão no plano XZ
+        o.drawY  = -0.30f * scale;    // centro abaixo do solo (parcialmente enterrada)
         g_Obstacles.push_back(o);
+    };
+
+    // --- Rochas espalhadas pelo interior do mapa (menores que antes) ---
+    addRock( 10.0f,  -8.0f, 2.0f);
+    addRock(-14.0f,  12.0f, 2.4f);
+    addRock( 22.0f,  20.0f, 1.6f);
+    addRock(-25.0f, -18.0f, 2.6f);
+    addRock(  5.0f,  28.0f, 2.1f);
+    addRock(-30.0f,  30.0f, 1.8f);
+
+    // --- Muralha de pedras ao redor da borda do mapa ---
+    // As pedras se sobrepõem (diâmetro > espaçamento) para formar uma parede
+    // contínua, sem frestas por onde o jogador passe.
+    const float border = 46.0f;
+    const float step   = 5.0f;
+    for (float c = -48.0f; c <= 48.0f; c += step)
+    {
+        float s = 3.0f + 0.5f * sinf(c * 0.6f); // leve variação de tamanho
+        addRock( border, c, s);   // borda +X
+        addRock(-border, c, s);   // borda -X
+        addRock( c,  border, s);  // borda +Z
+        addRock( c, -border, s);  // borda -Z
     }
 }
 
@@ -490,12 +510,40 @@ void Shoot()
         }
     }
 
-    if (best_i >= 0)
+    // Testamos também a interseção do raio com as pedras: se a pedra mais
+    // próxima estiver ANTES do pato no caminho do tiro, o tiro é bloqueado
+    // (o pato atrás da pedra não é atingido).
+    float obstacle_t = std::numeric_limits<float>::max();
+    for (size_t i = 0; i < g_Obstacles.size(); ++i)
+    {
+        glm::vec4 center = glm::vec4(g_Obstacles[i].pos.x, g_Obstacles[i].drawY,
+                                     g_Obstacles[i].pos.z, 1.0f);
+        float r = g_Obstacles[i].scale;
+        glm::vec4 oc = O - center; // w=0 (dois pontos)
+        float b = dotproduct(oc, D);
+        float c = dotproduct(oc, oc) - r*r;
+        float disc = b*b - c;
+        if (disc < 0.0f)
+            continue;
+        float sq = sqrtf(disc);
+        float t0 = -b - sq;
+        float t1 = -b + sq;
+        float t = (t0 > 0.0f) ? t0 : t1;
+        if (t > 0.0f && t < obstacle_t)
+            obstacle_t = t;
+    }
+
+    if (best_i >= 0 && best_t < obstacle_t)
     {
         g_Ducks[best_i].alive = false;
         g_Ducks[best_i].respawnAt = (float)glfwGetTime() + 3.0f; // reaparece em 3s
         g_Score += 1;
         printf("HIT! Pontos: %d\n", g_Score);
+        fflush(stdout);
+    }
+    else if (best_i >= 0)
+    {
+        printf("Tiro bloqueado por uma pedra.\n");
         fflush(stdout);
     }
 }
@@ -882,7 +930,7 @@ int main(int argc, char* argv[])
         for (size_t i = 0; i < g_Obstacles.size(); ++i)
         {
             float s = g_Obstacles[i].scale;
-            model = Matrix_Translate(g_Obstacles[i].pos.x, s, g_Obstacles[i].pos.z)
+            model = Matrix_Translate(g_Obstacles[i].pos.x, g_Obstacles[i].drawY, g_Obstacles[i].pos.z)
                   * Matrix_Scale(s, s, s);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             DrawVirtualObject("the_sphere");

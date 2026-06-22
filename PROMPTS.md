@@ -118,3 +118,18 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > empurra o jogador para fora da rocha.
 
 **Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.
+
+---
+
+## Etapa 4.1 — Pedras naturais, muralha na borda e tiro bloqueado por pedra
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Ajustar as pedras: deixá-las menores e parcialmente enterradas no solo (centro
+> abaixo do chão) para parecerem rochas naturais e não bolas. Fazer o tiro ser
+> bloqueado por pedras: se uma pedra estiver antes do pato no caminho do raio, o
+> pato atrás dela não deve ser atingido (testar interseção raio-pedra e comparar
+> distâncias). Adicionar uma muralha de pedras ao redor da borda do mapa, no
+> lugar da parede invisível (mantendo um limite de segurança na borda).
+
+**Arquivos afetados:** `src/main.cpp`.
