@@ -1044,11 +1044,18 @@ int main(int argc, char* argv[])
             pos.w = 1.0f;
             d.worldPos = pos;
 
-            // Yaw a partir da componente horizontal da tangente (direção do voo).
-            float yaw = atan2f(tangent.x, tangent.z);
+            // Orientamos o pato ao longo da tangente 3D da trajetória, para que
+            // ele "olhe" na direção do voo (deixa as curvas bem mais perceptíveis):
+            //  - yaw   = rotação horizontal (direção no plano XZ);
+            //  - pitch = inclinação vertical (nariz sobe ao subir, desce ao descer).
+            float horiz = sqrtf(tangent.x*tangent.x + tangent.z*tangent.z);
+            float yaw   = atan2f(tangent.x, tangent.z);
+            float pitch = atan2f(tangent.y, horiz);
 
             model = Matrix_Translate(pos.x, pos.y, pos.z)
-                  * Matrix_Rotate_Y(yaw + g_DuckYawOffset)
+                  * Matrix_Rotate_Y(yaw)
+                  * Matrix_Rotate_X(-pitch)
+                  * Matrix_Rotate_Y(g_DuckYawOffset)
                   * Matrix_Scale(d.scale, d.scale, d.scale);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             DrawVirtualObject("0"); // nome do shape dentro de pato.obj
