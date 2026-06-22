@@ -1198,6 +1198,15 @@ int main(int argc, char* argv[])
     return 0;
 }
 
+// Tokens da extensão de filtragem anisotrópica (EXT_texture_filter_anisotropic),
+// caso não estejam definidos pelos headers do GLAD.
+#ifndef GL_TEXTURE_MAX_ANISOTROPY
+#define GL_TEXTURE_MAX_ANISOTROPY 0x84FE
+#endif
+#ifndef GL_MAX_TEXTURE_MAX_ANISOTROPY
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY 0x84FF
+#endif
+
 // Função que carrega uma imagem para ser utilizada como textura.
 // Se with_alpha == true, a imagem é carregada com 4 canais (RGBA), preservando
 // o canal de transparência (usado, por exemplo, no recorte das folhas).
@@ -1234,6 +1243,13 @@ void LoadTextureImage(const char* filename, bool with_alpha)
     // Parâmetros de amostragem da textura.
     glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glSamplerParameteri(sampler_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Filtragem anisotrópica: preserva o detalhe das texturas vistas em ângulos
+    // rasantes (ex.: as folhas das árvores vistas de baixo, ou o chão ao longe),
+    // evitando que o filtro trilinear "borre" demais e dissolva a folhagem.
+    GLfloat max_aniso = 1.0f;
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_aniso);
+    glSamplerParameterf(sampler_id, GL_TEXTURE_MAX_ANISOTROPY, max_aniso);
 
     // Agora enviamos a imagem lida do disco para a GPU
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);

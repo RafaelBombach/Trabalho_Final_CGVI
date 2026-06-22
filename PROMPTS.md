@@ -173,3 +173,18 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 **Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`,
 `tools/split_tree.py`, `data/tree_trunk.obj`, `data/tree_leaves.obj`,
 `data/sugar_maple_bark.jpg`, `data/sugar_maple_leaf.png`, `data/FONTES.txt`.
+
+---
+
+## Etapa 6.1 — Folhas das árvores: filtragem anisotrópica e limiar de alpha
+
+**Prompt (resumo da instrução dada à IA):**
+
+> As folhas, vistas de perto e de baixo (ângulo rasante), ficavam quase
+> transparentes (dissolviam em fios), pois o filtro trilinear borra o alpha em
+> ângulos rasantes. Habilitar filtragem anisotrópica em todas as texturas (token
+> da extensão EXT_texture_filter_anisotropic) para preservar o detalhe nesses
+> ângulos, e baixar o limiar do alpha discard das folhas (0.5 -> 0.3) para
+> manter mais área de folha.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.

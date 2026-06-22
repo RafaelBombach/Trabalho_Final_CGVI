@@ -91,9 +91,11 @@ void main()
     }
     else if ( object_id == TREE_LEAVES )
     {
-        // Folhas recortadas pelo canal alpha da textura RGBA.
+        // Folhas recortadas pelo canal alpha da textura RGBA. Usamos um limiar
+        // mais baixo (0.3) para preservar mais área de folha, evitando que a
+        // folhagem "dissolva" em fios quando vista de baixo/longe.
         vec4 leaf = texture(TextureImage6, texcoords);
-        if (leaf.a < 0.5)
+        if (leaf.a < 0.3)
             discard;
         Kd = leaf.rgb;
         Ks = vec3(0.0);
