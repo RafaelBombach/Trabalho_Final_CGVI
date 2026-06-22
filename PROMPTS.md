@@ -204,3 +204,18 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > folhas, para que não se veja o céu através/por baixo da árvore.
 
 **Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.
+
+---
+
+## Etapa 6.3 — Reverter as alterações das folhas (6.1 e 6.2)
+
+**Prompt (resumo da instrução dada à IA):**
+
+> As alterações das etapas 6.1 e 6.2 (anisotropia/sem mipmap nas folhas e copa
+> opaca interna) pioraram o resultado: as folhas sumiam até de longe e as
+> árvores viravam "bolotas verdes". Reverter `src/main.cpp` e
+> `src/shader_fragment.glsl` para o estado da etapa 6 (folhas com mipmap e
+> limiar de alpha 0.5, sem anisotropia e sem copa opaca interna), que estava
+> bom de longe.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`.

@@ -1124,7 +1124,6 @@ int main(int argc, char* argv[])
         // ---- Árvores ----
         #define TREE_TRUNK  5
         #define TREE_LEAVES 6
-        #define CANOPY      7
         // Rotação de correção (Z-up -> Y-up) e cálculo automático da base, como
         // na grama.
         glm::mat4 tree_correction = Matrix_Rotate_X(g_TreeRotX);
@@ -1154,18 +1153,6 @@ int main(int argc, char* argv[])
             glUniform1i(g_object_id_uniform, TREE_TRUNK);
             DrawVirtualObject("tree_trunk");
 
-            // Copa opaca interna (elipsoide), um pouco menor que a extensão das
-            // folhas, para que as folhas cubram sua silhueta e não se veja o céu
-            // através da árvore. Posicionada no centro vertical da copa.
-            glm::mat4 canopy_model =
-                  Matrix_Translate(g_Trees[i].x, 200.0f * s, g_Trees[i].z)
-                * Matrix_Scale(55.0f * s, 78.0f * s, 55.0f * s);
-            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(canopy_model));
-            glUniform1i(g_object_id_uniform, CANOPY);
-            DrawVirtualObject("the_sphere");
-
-            // Folhas por cima (com a Model matrix da árvore).
-            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, TREE_LEAVES);
             DrawVirtualObject("tree_leaves");
         }
@@ -1211,15 +1198,6 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-// Tokens da extensão de filtragem anisotrópica (EXT_texture_filter_anisotropic),
-// caso não estejam definidos pelos headers do GLAD.
-#ifndef GL_TEXTURE_MAX_ANISOTROPY
-#define GL_TEXTURE_MAX_ANISOTROPY 0x84FE
-#endif
-#ifndef GL_MAX_TEXTURE_MAX_ANISOTROPY
-#define GL_MAX_TEXTURE_MAX_ANISOTROPY 0x84FF
-#endif
-
 // Função que carrega uma imagem para ser utilizada como textura.
 // Se with_alpha == true, a imagem é carregada com 4 canais (RGBA), preservando
 // o canal de transparência (usado, por exemplo, no recorte das folhas).
@@ -1254,25 +1232,8 @@ void LoadTextureImage(const char* filename, bool with_alpha)
     glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     // Parâmetros de amostragem da textura.
+    glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glSamplerParameteri(sampler_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    if (with_alpha)
-    {
-        // Texturas de recorte (folhagem): usamos filtro LINEAR sem mipmap e SEM
-        // anisotropia. Mipmap/anisotropia em ângulos rasantes misturam folha+céu
-        // e derrubam o alpha, fazendo as folhas "sumirem". Sem isso, o alpha
-        // fica nítido e as folhas permanecem visíveis de qualquer ângulo.
-        glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    }
-    else
-    {
-        // Texturas opacas: mipmap + anisotropia para boa qualidade ao longe e
-        // em ângulos rasantes (ex.: o chão).
-        glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        GLfloat max_aniso = 1.0f;
-        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_aniso);
-        glSamplerParameterf(sampler_id, GL_TEXTURE_MAX_ANISOTROPY, max_aniso);
-    }
 
     // Agora enviamos a imagem lida do disco para a GPU
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);

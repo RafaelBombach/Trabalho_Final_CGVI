@@ -22,7 +22,6 @@ uniform mat4 projection;
 #define GRASS    4
 #define TREE_TRUNK  5
 #define TREE_LEAVES 6
-#define CANOPY      7
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -89,15 +88,6 @@ void main()
         Kd = texture(TextureImage5, texcoords).rgb;
         Ks = vec3(0.05);
         shininess = 8.0;
-    }
-    else if ( object_id == CANOPY )
-    {
-        // Massa opaca interna da copa: preenche os vãos entre as folhas para
-        // que não se veja o céu por baixo/através da árvore. Verde escuro de
-        // folhagem, com iluminação suave.
-        Kd = vec3(0.10, 0.26, 0.09);
-        Ks = vec3(0.0);
-        shininess = 1.0;
     }
     else if ( object_id == TREE_LEAVES )
     {
