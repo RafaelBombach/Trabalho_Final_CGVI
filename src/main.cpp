@@ -266,10 +266,9 @@ struct Duck
 #define DUCK_DEAD    2
 std::vector<Duck> g_Ducks;
 
-// Ajuste de orientação do modelo do pato: o bico do modelo aponta para -X (e
-// não para +Z), então giramos ~+90° para alinhar o bico com a direção do voo.
-// Pode ser ajustado em tempo real com as teclas '[' e ']'.
-float g_DuckYawOffset = 1.5708f; // ~+90 graus
+// Ajuste de orientação do modelo do pato, para o bico apontar na direção do
+// voo. Valor calibrado em tempo real com as teclas '[' e ']'.
+float g_DuckYawOffset = 6.8941f; // 395 graus (equivalente a 35 graus)
 
 // Origem e direção (normalizada) do "tiro", atualizadas a cada quadro: o tiro
 // parte do olho do jogador na direção em que ele está olhando (centro da mira).
