@@ -1,2 +1,10 @@
 https://polyhaven.com/a/rocky_terrain_02
 https://polyhaven.com/a/red_brick
+
+# Modelo da arvore (sugar maple): modelo original em COLLADA (.dae), convertido
+# para .obj via https://imagetostl.com . Os arquivos tree_trunk.obj e
+# tree_leaves.obj foram gerados a partir desse .obj pelo script split_tree.py
+# (separa tronco/folhas e descarta chao/grama embutidos). Texturas do mesmo
+# modelo: sugar_maple_bark.jpg, sugar_maple_leaf.png.
+# TODO (preencher pela dupla): URL/origem exata do modelo do pato (pato.obj) e
+# da grama (Gras.obj).

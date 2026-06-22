@@ -20,6 +20,8 @@ uniform mat4 projection;
 #define PLAYER   2
 #define OBSTACLE 3
 #define GRASS    4
+#define TREE_TRUNK  5
+#define TREE_LEAVES 6
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -32,6 +34,8 @@ uniform sampler2D TextureImage1; // chão
 uniform sampler2D TextureImage2; // jogador
 uniform sampler2D TextureImage3; // grama (difusa)
 uniform sampler2D TextureImage4; // grama (opacidade)
+uniform sampler2D TextureImage5; // tronco (casca)
+uniform sampler2D TextureImage6; // folhas (RGBA)
 
 // Cor final do fragmento
 out vec4 color;
@@ -77,6 +81,22 @@ void main()
             discard;
         Kd = texture(TextureImage3, texcoords).rgb;
         Ks = vec3(0.0);   // grama sem brilho especular
+        shininess = 1.0;
+    }
+    else if ( object_id == TREE_TRUNK )
+    {
+        Kd = texture(TextureImage5, texcoords).rgb;
+        Ks = vec3(0.05);
+        shininess = 8.0;
+    }
+    else if ( object_id == TREE_LEAVES )
+    {
+        // Folhas recortadas pelo canal alpha da textura RGBA.
+        vec4 leaf = texture(TextureImage6, texcoords);
+        if (leaf.a < 0.5)
+            discard;
+        Kd = leaf.rgb;
+        Ks = vec3(0.0);
         shininess = 1.0;
     }
     else if ( object_id == OBSTACLE )

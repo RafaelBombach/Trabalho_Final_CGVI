@@ -117,7 +117,7 @@ void PopMatrix(glm::mat4& M);
 void BuildTrianglesAndAddToVirtualScene(ObjModel*); // Constrói representação de um ObjModel como malha de triângulos para renderização
 void ComputeNormals(ObjModel* model); // Computa normais de um ObjModel, caso não existam.
 void LoadShadersFromFiles(); // Carrega os shaders de vértice e fragmento, criando um programa de GPU
-void LoadTextureImage(const char* filename); // Função que carrega imagens de textura
+void LoadTextureImage(const char* filename, bool with_alpha = false); // Função que carrega imagens de textura
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
 GLuint LoadShader_Vertex(const char* filename);   // Carrega um vertex shader
 GLuint LoadShader_Fragment(const char* filename); // Carrega um fragment shader
@@ -309,6 +309,22 @@ const float g_GrassRotX = -1.5707963f; // -90 graus
 // Bounding box (em coordenadas do modelo) do tufo de grama, obtida do Gras.obj.
 const glm::vec3 g_GrassBBoxMin = glm::vec3(-5.27f, -4.11f, -0.87f);
 const glm::vec3 g_GrassBBoxMax = glm::vec3( 9.85f, 10.77f,  5.70f);
+
+// ---- Árvores ----
+// Cada árvore é uma instância dos modelos tronco+folhas. A árvore é Z-up (3ds
+// Max), então aplicamos -90° em X (como na grama). Serve também de obstáculo:
+// o tronco bloqueia o jogador (colisão XZ) e a copa bloqueia tiros (esfera).
+struct Tree
+{
+    float x, z;   // posição no chão
+    float scale;  // escala do modelo
+    float rot;    // rotação em torno de Y
+};
+std::vector<Tree> g_Trees;
+
+const float g_TreeRotX = -1.5707963f; // -90 graus (Z-up -> Y-up)
+const glm::vec3 g_TreeBBoxMin = glm::vec3(-122.44f, -115.7f,  -1.27f);
+const glm::vec3 g_TreeBBoxMax = glm::vec3( 116.7f,  126.6f, 324.15f);
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -513,6 +529,27 @@ void SpawnGrass()
     }
 }
 
+// Cria as árvores em posições fixas pelo mapa (evitando o centro, onde o
+// jogador começa).
+void SpawnTrees()
+{
+    g_Trees.clear();
+    float spots[][2] = {
+        { 18.0f, 14.0f}, {-20.0f, 10.0f}, { 25.0f,-22.0f}, {-28.0f,-15.0f},
+        { 12.0f, 30.0f}, {-15.0f, 35.0f}, { 35.0f,  8.0f}, {-35.0f, 25.0f},
+        {  8.0f,-30.0f}, {-10.0f,-32.0f},
+    };
+    for (int i = 0; i < 10; ++i)
+    {
+        Tree t;
+        t.x     = spots[i][0];
+        t.z     = spots[i][1];
+        t.scale = 0.035f + 0.010f * ((i % 3) / 2.0f); // leve variação de tamanho
+        t.rot   = i * 0.7f;                            // rotações distintas
+        g_Trees.push_back(t);
+    }
+}
+
 // Dispara um tiro: lança um raio a partir de g_ShotOrigin na direção
 // g_ShotDirection e testa interseção com a esfera envolvente de cada pato vivo.
 // O pato mais próximo atingido é abatido e o placar é incrementado.
@@ -566,6 +603,27 @@ void Shoot()
                                      g_Obstacles[i].pos.z, 1.0f);
         float r = g_Obstacles[i].scale;
         glm::vec4 oc = O - center; // w=0 (dois pontos)
+        float b = dotproduct(oc, D);
+        float c = dotproduct(oc, oc) - r*r;
+        float disc = b*b - c;
+        if (disc < 0.0f)
+            continue;
+        float sq = sqrtf(disc);
+        float t0 = -b - sq;
+        float t1 = -b + sq;
+        float t = (t0 > 0.0f) ? t0 : t1;
+        if (t > 0.0f && t < obstacle_t)
+            obstacle_t = t;
+    }
+
+    // Copa das árvores: aproximamos por uma esfera que também bloqueia o tiro
+    // (um pato atrás da copa não é atingido).
+    for (size_t i = 0; i < g_Trees.size(); ++i)
+    {
+        float s = g_Trees[i].scale;
+        glm::vec4 center = glm::vec4(g_Trees[i].x, 200.0f * s, g_Trees[i].z, 1.0f);
+        float r = 95.0f * s;
+        glm::vec4 oc = O - center;
         float b = dotproduct(oc, D);
         float c = dotproduct(oc, oc) - r*r;
         float disc = b*b - c;
@@ -678,6 +736,8 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/red_brick_diff_1k.jpg");        // TextureImage2 - jogador
     LoadTextureImage("../../data/graeser_mischung.png");         // TextureImage3 - grama (difusa)
     LoadTextureImage("../../data/graeser_mischung_opacity.jpg"); // TextureImage4 - grama (opacidade)
+    LoadTextureImage("../../data/sugar_maple_bark.jpg");         // TextureImage5 - tronco (casca)
+    LoadTextureImage("../../data/sugar_maple_leaf.png", true);   // TextureImage6 - folhas (RGBA, com alpha)
 
     // Construímos a representação dos objetos geométricos (malhas de triângulos).
     ObjModel patomodel("../../data/pato.obj");
@@ -706,6 +766,16 @@ int main(int argc, char* argv[])
     ComputeNormals(&grassmodel);
     BuildTrianglesAndAddToVirtualScene(&grassmodel);
 
+    // Árvore (sugar maple) separada em tronco (casca) e folhas. As folhas usam
+    // textura com canal alpha (recorte das folhas).
+    ObjModel treetrunk("../../data/tree_trunk.obj");
+    ComputeNormals(&treetrunk);
+    BuildTrianglesAndAddToVirtualScene(&treetrunk);
+
+    ObjModel treeleaves("../../data/tree_leaves.obj");
+    ComputeNormals(&treeleaves);
+    BuildTrianglesAndAddToVirtualScene(&treeleaves);
+
     // Criamos os patos da cena (instâncias com trajetórias linear e Bézier).
     SpawnDucks();
 
@@ -714,6 +784,9 @@ int main(int argc, char* argv[])
 
     // Espalhamos os tufos de grama pelo chão.
     SpawnGrass();
+
+    // Posicionamos as árvores pelo mapa.
+    SpawnTrees();
 
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
@@ -805,6 +878,22 @@ int main(int argc, char* argv[])
             float dz = g_PlayerPosition.z - g_Obstacles[i].pos.z;
             float dist = sqrtf(dx*dx + dz*dz);
             float min_dist = g_Obstacles[i].radius + player_radius;
+            if (dist < min_dist && dist > 1e-4f)
+            {
+                float push = (min_dist - dist) / dist;
+                g_PlayerPosition.x += dx * push;
+                g_PlayerPosition.z += dz * push;
+            }
+        }
+
+        // (3) Troncos das árvores: colisão círculo-círculo (o tronco é fino).
+        const float trunk_radius = 1.3f;
+        for (size_t i = 0; i < g_Trees.size(); ++i)
+        {
+            float dx = g_PlayerPosition.x - g_Trees[i].x;
+            float dz = g_PlayerPosition.z - g_Trees[i].z;
+            float dist = sqrtf(dx*dx + dz*dz);
+            float min_dist = trunk_radius + player_radius;
             if (dist < min_dist && dist > 1e-4f)
             {
                 float push = (min_dist - dist) / dist;
@@ -1032,6 +1121,43 @@ int main(int argc, char* argv[])
         }
         glEnable(GL_CULL_FACE);
 
+        // ---- Árvores ----
+        #define TREE_TRUNK  5
+        #define TREE_LEAVES 6
+        // Rotação de correção (Z-up -> Y-up) e cálculo automático da base, como
+        // na grama.
+        glm::mat4 tree_correction = Matrix_Rotate_X(g_TreeRotX);
+        float tree_min_y = std::numeric_limits<float>::max();
+        for (int cx = 0; cx < 2; ++cx)
+        for (int cy = 0; cy < 2; ++cy)
+        for (int cz = 0; cz < 2; ++cz)
+        {
+            glm::vec4 corner(
+                cx ? g_TreeBBoxMax.x : g_TreeBBoxMin.x,
+                cy ? g_TreeBBoxMax.y : g_TreeBBoxMin.y,
+                cz ? g_TreeBBoxMax.z : g_TreeBBoxMin.z, 1.0f);
+            glm::vec4 r = tree_correction * corner;
+            if (r.y < tree_min_y) tree_min_y = r.y;
+        }
+
+        glDisable(GL_CULL_FACE); // troncos/folhas convertidos: evita faces faltando
+        for (size_t i = 0; i < g_Trees.size(); ++i)
+        {
+            float s = g_Trees[i].scale;
+            model = Matrix_Translate(g_Trees[i].x, -tree_min_y * s, g_Trees[i].z)
+                  * Matrix_Rotate_Y(g_Trees[i].rot)
+                  * tree_correction
+                  * Matrix_Scale(s, s, s);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+
+            glUniform1i(g_object_id_uniform, TREE_TRUNK);
+            DrawVirtualObject("tree_trunk");
+
+            glUniform1i(g_object_id_uniform, TREE_LEAVES);
+            DrawVirtualObject("tree_leaves");
+        }
+        glEnable(GL_CULL_FACE);
+
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
 
@@ -1072,8 +1198,10 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-// Função que carrega uma imagem para ser utilizada como textura
-void LoadTextureImage(const char* filename)
+// Função que carrega uma imagem para ser utilizada como textura.
+// Se with_alpha == true, a imagem é carregada com 4 canais (RGBA), preservando
+// o canal de transparência (usado, por exemplo, no recorte das folhas).
+void LoadTextureImage(const char* filename, bool with_alpha)
 {
     printf("Carregando imagem \"%s\"... ", filename);
 
@@ -1082,7 +1210,8 @@ void LoadTextureImage(const char* filename)
     int width;
     int height;
     int channels;
-    unsigned char *data = stbi_load(filename, &width, &height, &channels, 3);
+    int req_comp = with_alpha ? 4 : 3;
+    unsigned char *data = stbi_load(filename, &width, &height, &channels, req_comp);
 
     if ( data == NULL )
     {
@@ -1115,7 +1244,9 @@ void LoadTextureImage(const char* filename)
     GLuint textureunit = g_NumLoadedTextures;
     glActiveTexture(GL_TEXTURE0 + textureunit);
     glBindTexture(GL_TEXTURE_2D, texture_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    GLint  internalformat = with_alpha ? GL_SRGB8_ALPHA8 : GL_SRGB8;
+    GLenum format         = with_alpha ? GL_RGBA : GL_RGB;
+    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindSampler(textureunit, sampler_id);
 
@@ -1207,6 +1338,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage2"), 2);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage3"), 3);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage4"), 4);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage5"), 5);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
     glUseProgram(0);
 }
 

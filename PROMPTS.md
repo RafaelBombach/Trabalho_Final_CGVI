@@ -152,3 +152,24 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 **Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`,
 `data/Gras.*`, `data/graeser_mischung*.{png,jpg}`.
+
+---
+
+## Etapa 6 — Árvores (tronco + folhas com alpha) e obstáculos
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Integrar a árvore (sugar maple) que a dupla converteu de COLLADA para OBJ. O
+> modelo tem 2071 shapes e vários materiais (casca, folha, além de chão e grama
+> embutidos que NÃO queremos). Escrever um script Python (tools/split_tree.py)
+> que separa o modelo em dois OBJ limpos: tronco (material de casca) e folhas
+> (material de folha), descartando o chão/grama e re-indexando vértices. Carregar
+> os dois modelos, texturizar o tronco com a casca e as folhas com a textura RGBA
+> (recorte por alpha discard). Corrigir orientação (Z-up do 3ds Max) com rotação
+> de -90° em X e base automática. As árvores são obstáculos: o tronco bloqueia o
+> jogador (colisão XZ) e a copa (aproximada por uma esfera) bloqueia tiros.
+> Adaptar LoadTextureImage para carregar texturas com canal alpha (RGBA).
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`,
+`tools/split_tree.py`, `data/tree_trunk.obj`, `data/tree_leaves.obj`,
+`data/sugar_maple_bark.jpg`, `data/sugar_maple_leaf.png`, `data/FONTES.txt`.
