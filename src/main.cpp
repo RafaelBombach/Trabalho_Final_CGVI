@@ -1159,7 +1159,7 @@ int main(int argc, char* argv[])
             // através da árvore. Posicionada no centro vertical da copa.
             glm::mat4 canopy_model =
                   Matrix_Translate(g_Trees[i].x, 200.0f * s, g_Trees[i].z)
-                * Matrix_Scale(105.0f * s, 118.0f * s, 105.0f * s);
+                * Matrix_Scale(55.0f * s, 78.0f * s, 55.0f * s);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(canopy_model));
             glUniform1i(g_object_id_uniform, CANOPY);
             DrawVirtualObject("the_sphere");
