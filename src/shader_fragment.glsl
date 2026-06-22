@@ -71,8 +71,11 @@ void main()
         // visível (com fator muito alto o padrão some no mipmap).
         uv = texcoords * 8.0;
         Kd = texture(TextureImage7, uv).rgb;
-        Ks = vec3(0.05);
-        shininess = 8.0;
+        // Sem especular no chão: num plano grande, o brilho especular forma uma
+        // mancha que acompanha a câmera, dando a impressão de que a "textura
+        // anda junto" com o jogador. Só difusa + ambiente => 100% estático.
+        Ks = vec3(0.0);
+        shininess = 1.0;
     }
     else if ( object_id == GRASS )
     {
