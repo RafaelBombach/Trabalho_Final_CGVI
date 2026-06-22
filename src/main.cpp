@@ -282,6 +282,34 @@ std::vector<Obstacle> g_Obstacles;
 // é mantido dentro destes limites (colisão com a borda do mapa).
 const float g_MapHalfSize = 49.0f;
 
+// ---- Grama ----
+// Cada tufo de grama é uma instância do modelo Gras.obj, espalhado pelo chão
+// com posição, escala e rotação próprias.
+struct GrassPatch
+{
+    float x, z;   // posição no chão
+    float scale;  // escala do tufo
+    float rot;    // rotação em torno de Y (variedade visual)
+};
+std::vector<GrassPatch> g_Grass;
+
+// Nomes dos shapes que compõem o modelo de grama (todos desenhados por tufo).
+const char* g_GrassShapes[] = {
+    "Rectangle001", "Rectangle002", "Rectangle003",
+    "Rectangle004", "Rectangle005", "Rectangle006",
+};
+
+// Rotação de correção aplicada ao modelo de grama (o asset foi exportado do
+// 3ds Max, cujo eixo "para cima" é Z; giramos -90° em X para deixá-lo em pé no
+// nosso mundo Y-up). A altura da base é calculada automaticamente a partir da
+// bounding box rotacionada (ver loop de desenho), então mudar este ângulo já
+// reposiciona o tufo sobre o chão.
+const float g_GrassRotX = -1.5707963f; // -90 graus
+
+// Bounding box (em coordenadas do modelo) do tufo de grama, obtida do Gras.obj.
+const glm::vec3 g_GrassBBoxMin = glm::vec3(-5.27f, -4.11f, -0.87f);
+const glm::vec3 g_GrassBBoxMax = glm::vec3( 9.85f, 10.77f,  5.70f);
+
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
 
@@ -467,6 +495,24 @@ void SpawnObstacles()
     }
 }
 
+// Espalha tufos de grama pelo chão, com posição/escala/rotação pseudo-aleatórias
+// (semente fixa para a cena ser sempre a mesma).
+void SpawnGrass()
+{
+    g_Grass.clear();
+    srand(1234);
+    const int num_patches = 250;
+    for (int i = 0; i < num_patches; ++i)
+    {
+        GrassPatch g;
+        g.x     = -45.0f + (rand() / (float)RAND_MAX) * 90.0f; // [-45, 45]
+        g.z     = -45.0f + (rand() / (float)RAND_MAX) * 90.0f;
+        g.scale = 0.07f + (rand() / (float)RAND_MAX) * 0.06f;  // [0.07, 0.13]
+        g.rot   = (rand() / (float)RAND_MAX) * 6.2831853f;     // [0, 2pi]
+        g_Grass.push_back(g);
+    }
+}
+
 // Dispara um tiro: lança um raio a partir de g_ShotOrigin na direção
 // g_ShotDirection e testa interseção com a esfera envolvente de cada pato vivo.
 // O pato mais próximo atingido é abatido e o placar é incrementado.
@@ -630,6 +676,8 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/pato_texture.jpeg");            // TextureImage0 - pato
     LoadTextureImage("../../data/rocky_terrain_02_diff_1k.jpg"); // TextureImage1 - chão
     LoadTextureImage("../../data/red_brick_diff_1k.jpg");        // TextureImage2 - jogador
+    LoadTextureImage("../../data/graeser_mischung.png");         // TextureImage3 - grama (difusa)
+    LoadTextureImage("../../data/graeser_mischung_opacity.jpg"); // TextureImage4 - grama (opacidade)
 
     // Construímos a representação dos objetos geométricos (malhas de triângulos).
     ObjModel patomodel("../../data/pato.obj");
@@ -652,11 +700,20 @@ int main(int argc, char* argv[])
     ComputeNormals(&spheremodel);
     BuildTrianglesAndAddToVirtualScene(&spheremodel);
 
+    // Modelo de grama (tufo com vários retângulos cruzados; usa textura com
+    // canal de opacidade para recortar o formato das folhas).
+    ObjModel grassmodel("../../data/Gras.obj");
+    ComputeNormals(&grassmodel);
+    BuildTrianglesAndAddToVirtualScene(&grassmodel);
+
     // Criamos os patos da cena (instâncias com trajetórias linear e Bézier).
     SpawnDucks();
 
     // Criamos os obstáculos (rochas) com os quais o jogador colide.
     SpawnObstacles();
+
+    // Espalhamos os tufos de grama pelo chão.
+    SpawnGrass();
 
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
@@ -829,6 +886,7 @@ int main(int argc, char* argv[])
         #define DUCK     1
         #define PLAYER   2
         #define OBSTACLE 3
+        #define GRASS    4
 
         // ---- Chão ----
         // O plano "the_plane" é 2x2 em XZ; escalamos para cobrir um grande
@@ -935,6 +993,44 @@ int main(int argc, char* argv[])
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             DrawVirtualObject("the_sphere");
         }
+
+        // ---- Grama ----
+        // Os tufos são quads cruzados com recorte por opacidade (alpha discard
+        // no fragment shader). Desligamos o backface culling para que as folhas
+        // sejam visíveis dos dois lados.
+        //
+        // Aplicamos uma rotação de correção (g_GrassRotX) para deixar o tufo em
+        // pé. Calculamos o menor Y dos 8 cantos da bbox APÓS essa rotação, para
+        // depois transladar a base para o chão (y=0), independente do ângulo.
+        glm::mat4 grass_correction = Matrix_Rotate_X(g_GrassRotX);
+        float grass_min_y = std::numeric_limits<float>::max();
+        for (int cx = 0; cx < 2; ++cx)
+        for (int cy = 0; cy < 2; ++cy)
+        for (int cz = 0; cz < 2; ++cz)
+        {
+            glm::vec4 corner(
+                cx ? g_GrassBBoxMax.x : g_GrassBBoxMin.x,
+                cy ? g_GrassBBoxMax.y : g_GrassBBoxMin.y,
+                cz ? g_GrassBBoxMax.z : g_GrassBBoxMin.z,
+                1.0f);
+            glm::vec4 r = grass_correction * corner;
+            if (r.y < grass_min_y) grass_min_y = r.y;
+        }
+
+        glDisable(GL_CULL_FACE);
+        glUniform1i(g_object_id_uniform, GRASS);
+        for (size_t i = 0; i < g_Grass.size(); ++i)
+        {
+            float s = g_Grass[i].scale;
+            model = Matrix_Translate(g_Grass[i].x, -grass_min_y * s, g_Grass[i].z)
+                  * Matrix_Rotate_Y(g_Grass[i].rot)
+                  * grass_correction
+                  * Matrix_Scale(s, s, s);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            for (size_t k = 0; k < sizeof(g_GrassShapes)/sizeof(g_GrassShapes[0]); ++k)
+                DrawVirtualObject(g_GrassShapes[k]);
+        }
+        glEnable(GL_CULL_FACE);
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
@@ -1109,6 +1205,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage1"), 1);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage2"), 2);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage3"), 3);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage4"), 4);
     glUseProgram(0);
 }
 

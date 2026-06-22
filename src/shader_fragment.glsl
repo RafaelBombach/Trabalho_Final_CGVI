@@ -19,6 +19,7 @@ uniform mat4 projection;
 #define DUCK     1
 #define PLAYER   2
 #define OBSTACLE 3
+#define GRASS    4
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -29,6 +30,8 @@ uniform vec4 bbox_max;
 uniform sampler2D TextureImage0; // pato
 uniform sampler2D TextureImage1; // chão
 uniform sampler2D TextureImage2; // jogador
+uniform sampler2D TextureImage3; // grama (difusa)
+uniform sampler2D TextureImage4; // grama (opacidade)
 
 // Cor final do fragmento
 out vec4 color;
@@ -64,6 +67,17 @@ void main()
         Kd = texture(TextureImage1, uv).rgb;
         Ks = vec3(0.05);
         shininess = 8.0;
+    }
+    else if ( object_id == GRASS )
+    {
+        // Recorte das folhas: descartamos o fragmento onde a máscara de
+        // opacidade é baixa (alpha test via discard, sem precisar de blending).
+        float opacity = texture(TextureImage4, texcoords).r;
+        if (opacity < 0.5)
+            discard;
+        Kd = texture(TextureImage3, texcoords).rgb;
+        Ks = vec3(0.0);   // grama sem brilho especular
+        shininess = 1.0;
     }
     else if ( object_id == OBSTACLE )
     {

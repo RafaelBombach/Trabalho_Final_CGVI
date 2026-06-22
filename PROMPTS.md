@@ -133,3 +133,22 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > lugar da parede invisível (mantendo um limite de segurança na borda).
 
 **Arquivos afetados:** `src/main.cpp`.
+
+---
+
+## Etapa 5 — Grama com canal de opacidade (alpha discard)
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Adicionar grama espalhada pelo chão usando o modelo Gras.obj (tufo de vários
+> retângulos cruzados), texturizada com a imagem difusa e recortada pelo canal
+> de opacidade. Usar alpha test (discard no fragment shader) para recortar o
+> formato das folhas, e desligar o backface culling ao desenhar a grama para que
+> os quads sejam visíveis dos dois lados. Espalhar centenas de tufos com
+> posição/escala/rotação pseudo-aleatórias (semente fixa). Corrigir a
+> orientação do modelo (vinha deitado, pois o asset é Z-up do 3ds Max): aplicar
+> rotação de correção de -90° em X e calcular automaticamente a altura da base a
+> partir da bounding box rotacionada para plantar o tufo sobre o chão.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_fragment.glsl`,
+`data/Gras.*`, `data/graeser_mischung*.{png,jpg}`.
