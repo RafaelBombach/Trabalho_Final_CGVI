@@ -103,6 +103,14 @@ if(WIN32)
 
   target_link_libraries(${EXECUTABLE_NAME} ${LIBGLFW} gdi32 opengl32)
 
+  # Link estático do runtime do MinGW (libstdc++, libgcc, libwinpthread) para
+  # gerar um executável portátil, que roda sem precisar das DLLs do MSYS no PATH
+  # (importante para rodar por duplo-clique ou em outra máquina, ex.: lab/projetor).
+  if(MINGW)
+    set_target_properties(${EXECUTABLE_NAME} PROPERTIES
+      LINK_FLAGS "-static -static-libgcc -static-libstdc++")
+  endif()
+
 elseif(UNIX)
 
   target_compile_options(${EXECUTABLE_NAME} PRIVATE -Wall -Wno-unused-function)
