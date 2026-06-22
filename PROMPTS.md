@@ -86,3 +86,20 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > cantos agudos para obter o zig-zag.
 
 **Arquivos afetados:** `src/main.cpp`.
+
+---
+
+## Etapa 3 — Tiro, mira e placar (interseção raio-esfera)
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Implementar o tiro: cruzeta no centro da tela, e o clique esquerdo do mouse
+> lança um raio a partir do olho do jogador na direção do olhar. Testar
+> interseção raio-esfera com a esfera envolvente de cada pato vivo (teste de
+> interseção com propósito); o pato mais próximo atingido é abatido, some, o
+> placar incrementa e o pato reaparece após alguns segundos. Mostrar o placar na
+> tela. Corrigir bug: a avaliação da curva de Bézier produzia pontos com w != 1
+> (erro de ponto flutuante), o que fazia o dotproduct() de matrices.h abortar o
+> programa ao atirar — forçar w=1 nas posições dos patos.
+
+**Arquivos afetados:** `src/main.cpp`.

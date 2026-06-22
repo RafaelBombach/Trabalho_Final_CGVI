@@ -248,13 +248,23 @@ struct Duck
     float param;     // parâmetro de avanço, acumulado por delta-time
     float speed;     // velocidade do avanço do parâmetro
     float scale;     // escala do modelo
-    bool  alive;     // usado futuramente pela lógica de tiro
+    bool  alive;     // false quando abatido (some até reaparecer)
+    glm::vec4 worldPos = glm::vec4(0.0f,0.0f,0.0f,1.0f); // posição atual no mundo (p/ o tiro)
+    float respawnAt = 0.0f; // instante (s) em que o pato reaparece após ser abatido
 };
 std::vector<Duck> g_Ducks;
 
 // Ajuste de orientação do modelo do pato (caso o .obj não "olhe" para +Z).
 // Pode ser alterado para girar todos os patos de uma vez.
 float g_DuckYawOffset = 0.0f;
+
+// Origem e direção (normalizada) do "tiro", atualizadas a cada quadro: o tiro
+// parte do olho do jogador na direção em que ele está olhando (centro da mira).
+glm::vec4 g_ShotOrigin    = glm::vec4(0.0f,0.0f,0.0f,1.0f);
+glm::vec4 g_ShotDirection = glm::vec4(0.0f,0.0f,1.0f,0.0f);
+
+// Placar (número de patos abatidos).
+int g_Score = 0;
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -396,6 +406,59 @@ void SpawnDucks()
         d.scale = 3.5f;
         d.alive = true;
         g_Ducks.push_back(d);
+    }
+}
+
+// Dispara um tiro: lança um raio a partir de g_ShotOrigin na direção
+// g_ShotDirection e testa interseção com a esfera envolvente de cada pato vivo.
+// O pato mais próximo atingido é abatido e o placar é incrementado.
+// (Este é o teste de interseção com propósito exigido pelo trabalho: picking
+//  de patos via raio-esfera.)
+void Shoot()
+{
+    glm::vec4 O = g_ShotOrigin;
+    glm::vec4 D = g_ShotDirection; // já normalizado
+
+    float best_t = std::numeric_limits<float>::max();
+    int   best_i = -1;
+
+    for (size_t i = 0; i < g_Ducks.size(); ++i)
+    {
+        Duck& d = g_Ducks[i];
+        if (!d.alive)
+            continue;
+
+        // Raio de colisão da esfera envolvente do pato (um pouco generoso para
+        // facilitar a mira). O modelo tem ~0.5 un, escalado por d.scale.
+        float r = d.scale * 0.6f;
+
+        // Interseção raio-esfera. Com D normalizado, resolvemos
+        //   t^2 + 2b t + c = 0,  b = dot(oc,D),  c = dot(oc,oc) - r^2
+        glm::vec4 oc = O - d.worldPos; // vetor (w=0, pois são dois pontos)
+        float b = dotproduct(oc, D);
+        float c = dotproduct(oc, oc) - r*r;
+        float disc = b*b - c;
+        if (disc < 0.0f)
+            continue; // o raio não toca a esfera
+
+        float sq = sqrtf(disc);
+        float t0 = -b - sq;
+        float t1 = -b + sq;
+        float t = (t0 > 0.0f) ? t0 : t1; // primeira interseção à frente
+        if (t > 0.0f && t < best_t)
+        {
+            best_t = t;
+            best_i = (int)i;
+        }
+    }
+
+    if (best_i >= 0)
+    {
+        g_Ducks[best_i].alive = false;
+        g_Ducks[best_i].respawnAt = (float)glfwGetTime() + 3.0f; // reaparece em 3s
+        g_Score += 1;
+        printf("HIT! Pontos: %d\n", g_Score);
+        fflush(stdout);
     }
 }
 
@@ -594,6 +657,12 @@ int main(int argc, char* argv[])
             camera_view_vector = lookat - camera_position_c;
         }
 
+        // O tiro sempre parte do olho do jogador na direção em que ele olha
+        // (centro da mira), independente do modo de câmera. Atualizamos a cada
+        // quadro para que o clique do mouse (MouseButtonCallback) use estes valores.
+        g_ShotOrigin    = g_PlayerPosition + glm::vec4(0.0f, eye_height, 0.0f, 0.0f);
+        g_ShotDirection = view_direction / norm(view_direction);
+
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
@@ -659,7 +728,13 @@ int main(int argc, char* argv[])
         {
             Duck& d = g_Ducks[i];
             if (!d.alive)
-                continue;
+            {
+                // Pato abatido: reaparece quando o tempo de respawn é atingido.
+                if ((float)glfwGetTime() >= d.respawnAt)
+                    d.alive = true;
+                else
+                    continue;
+            }
 
             d.param += d.speed * g_DeltaTime;
 
@@ -694,6 +769,13 @@ int main(int argc, char* argv[])
                 tangent = BezierTangent(c0, c1, c2, c3, lt);
             }
 
+            // Guardamos a posição atual no mundo para o teste de tiro (raycast).
+            // Forçamos w=1 (é um ponto): a avaliação da Bézier soma termos de
+            // Bernstein e o w resultante pode não ser exatamente 1.0 por erro de
+            // ponto flutuante, o que faria o dotproduct() de matrices.h abortar.
+            pos.w = 1.0f;
+            d.worldPos = pos;
+
             // Yaw a partir da componente horizontal da tangente (direção do voo).
             float yaw = atan2f(tangent.x, tangent.z);
 
@@ -727,6 +809,17 @@ int main(int argc, char* argv[])
         // Imprimimos na tela informação sobre o número de quadros renderizados
         // por segundo (frames per second).
         TextRendering_ShowFramesPerSecond(window);
+
+        // HUD: cruzeta de mira no centro da tela e placar no canto superior
+        // esquerdo (sempre visíveis, independente de g_ShowInfoText).
+        {
+            float cw = TextRendering_CharWidth(window);
+            float lh = TextRendering_LineHeight(window);
+            TextRendering_PrintString(window, "+", -cw*0.5f, -lh*0.5f, 1.5f);
+            char score_buffer[64];
+            snprintf(score_buffer, 64, "Pontos: %d", g_Score);
+            TextRendering_PrintString(window, score_buffer, -1.0f + cw, 1.0f - lh, 1.0f);
+        }
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -1355,6 +1448,9 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         // com o botão esquerdo pressionado.
         glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
         g_LeftMouseButtonPressed = true;
+
+        // Clique esquerdo = atirar. Lança o raio da mira e abate o pato atingido.
+        Shoot();
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
