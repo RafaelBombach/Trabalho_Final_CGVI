@@ -300,7 +300,7 @@ void SpawnDucks()
     g_Ducks.clear();
 
     // --- Patos de voo LINEAR (atravessam o mapa) ---
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         Duck d;
         d.path  = PATH_LINEAR;
@@ -316,23 +316,38 @@ void SpawnDucks()
         g_Ducks.push_back(d);
     }
 
-    // --- Patos de voo por curva de BÉZIER cúbica (caminho curvo e suave) ---
-    glm::vec4 curves[3][4] = {
-        { glm::vec4(-40,  5, -20, 1), glm::vec4(-15, 14,  30, 1),
-          glm::vec4( 15, 14, -30, 1), glm::vec4( 40,  5,  20, 1) },
-        { glm::vec4( 45,  7,  35, 1), glm::vec4( 10, 16,  10, 1),
-          glm::vec4(-10, 16, -10, 1), glm::vec4(-45,  7, -35, 1) },
-        { glm::vec4(-35, 10,  40, 1), glm::vec4(  0, 18,  15, 1),
-          glm::vec4(  0, 18, -15, 1), glm::vec4( 35, 10, -40, 1) },
+    // --- Patos de voo por curva de BÉZIER cúbica ---
+    // Pontos de controle EXAGERADOS de propósito (P1/P2 bem afastados da reta
+    // P0->P3) para que a curvatura seja bem visível: arcos altos, "S" no plano
+    // horizontal e grandes oscilações laterais.
+    glm::vec4 curves[6][4] = {
+        // Arco alto (sobe bastante no meio do trajeto)
+        { glm::vec4(-45,  4,  0, 1), glm::vec4(-15, 28,  0, 1),
+          glm::vec4( 15, 28,  0, 1), glm::vec4( 45,  4,  0, 1) },
+        // "S" no plano horizontal (zig-zag acentuado)
+        { glm::vec4(-45,  9,-45, 1), glm::vec4(-45,  9, 45, 1),
+          glm::vec4( 45,  9,-45, 1), glm::vec4( 45,  9, 45, 1) },
+        // Grandes oscilações laterais
+        { glm::vec4(  0,  6,-48, 1), glm::vec4( 65, 14,-12, 1),
+          glm::vec4(-65, 14, 12, 1), glm::vec4(  0,  6, 48, 1) },
+        // Arco diagonal subindo e descendo forte
+        { glm::vec4(-40,  3, 35, 1), glm::vec4(  5, 30, 10, 1),
+          glm::vec4( -5, 30,-10, 1), glm::vec4( 40,  3,-35, 1) },
+        // "U" profundo (mergulha e sobe)
+        { glm::vec4(-30, 20,-25, 1), glm::vec4(-10,  2,-25, 1),
+          glm::vec4( 10,  2, 25, 1), glm::vec4( 30, 20, 25, 1) },
+        // Curva suave (mantemos uma mais discreta para variedade)
+        { glm::vec4( 40,  8, 40, 1), glm::vec4( 10, 16, 10, 1),
+          glm::vec4(-10, 16,-10, 1), glm::vec4(-40,  8,-40, 1) },
     };
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 6; ++i)
     {
         Duck d;
         d.path  = PATH_BEZIER;
         d.b0 = curves[i][0]; d.b1 = curves[i][1];
         d.b2 = curves[i][2]; d.b3 = curves[i][3];
-        d.param = i * 0.3f;          // fase inicial
-        d.speed = 0.04f + i*0.012f;  // ciclos por segundo (mais lento = curva longa)
+        d.param = i * 0.17f;         // fase inicial (espalha ao longo das curvas)
+        d.speed = 0.05f + i*0.01f;   // ciclos por segundo
         d.scale = 3.0f;
         d.alive = true;
         g_Ducks.push_back(d);
@@ -463,7 +478,7 @@ int main(int argc, char* argv[])
         // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
         //
         //           R     G     B     A
-        glClearColor(0.9f, 0.9f, 1.0f, 1.0f);
+        glClearColor(0.45f, 0.7f, 1.0f, 1.0f); // céu azul
 
         // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
         // e também resetamos todos os pixels do Z-buffer (depth buffer).

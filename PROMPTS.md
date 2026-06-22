@@ -60,3 +60,16 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 > Depois, a partir do feedback de teste, reduzir a velocidade dos patos.
 
 **Arquivos afetados:** `src/main.cpp`.
+
+---
+
+## Etapa 2.1 — Céu azul e curvas de Bézier mais visíveis
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Adicionar um céu azul (cor de fundo). Adicionar mais patos e tornar algumas
+> curvas de Bézier bem mais acentuadas (pontos de controle exagerados: arcos
+> altos, "S", "U", grandes oscilações laterais), pois as curvas estavam suaves
+> demais e a trajetória curva não era perceptível visualmente.
+
+**Arquivos afetados:** `src/main.cpp`.
