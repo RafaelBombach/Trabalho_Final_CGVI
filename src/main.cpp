@@ -272,7 +272,7 @@ struct Duck
 std::vector<Duck> g_Ducks;
 
 // Ajuste de orientação do modelo do pato, para o bico apontar na direção do
-// voo. Valor calibrado em tempo real com as teclas '[' e ']'.
+// voo (o bico do .obj aponta para -X). Valor calibrado durante o desenvolvimento.
 float g_DuckYawOffset = 6.8941f; // 395 graus (equivalente a 35 graus)
 
 // Origem e direção (normalizada) do "tiro", atualizadas a cada quadro: o tiro
@@ -2014,18 +2014,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     {
         g_CameraMode = (g_CameraMode == CAMERA_FIRST_PERSON)
                      ? CAMERA_THIRD_PERSON : CAMERA_FIRST_PERSON;
-    }
-
-    // ===== Ajuste fino da orientação do pato (teclas '[' e ']') =====
-    // Gira todos os patos em torno de Y para alinhar o bico com a direção do
-    // voo. Imprime o valor atual no terminal para anotarmos o ângulo final.
-    if ((key == GLFW_KEY_LEFT_BRACKET || key == GLFW_KEY_RIGHT_BRACKET)
-        && (action == GLFW_PRESS || action == GLFW_REPEAT))
-    {
-        g_DuckYawOffset += (key == GLFW_KEY_RIGHT_BRACKET ? 1.0f : -1.0f) * 0.0872665f; // ~5 graus
-        printf("g_DuckYawOffset = %.4f rad (%.1f graus)\n",
-               g_DuckYawOffset, g_DuckYawOffset * 180.0f / 3.141592f);
-        fflush(stdout);
     }
 
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
