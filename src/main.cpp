@@ -45,6 +45,10 @@
 
 #include <stb_image.h>
 
+// Biblioteca de áudio (apenas as declarações aqui; a implementação está em
+// src/miniaudio_impl.cpp). FONTE: miniaudio (https://github.com/mackron/miniaudio).
+#include "miniaudio.h"
+
 // Headers locais, definidos na pasta "include/"
 #include "utils.h"
 #include "matrices.h"
@@ -277,6 +281,19 @@ glm::vec4 g_ShotDirection = glm::vec4(0.0f,0.0f,1.0f,0.0f);
 
 // Placar (número de patos abatidos).
 int g_Score = 0;
+
+// ---- Áudio (miniaudio) ----
+// Engine de áudio de alto nível. Usamos ma_engine_play_sound() para tocar
+// efeitos "fire-and-forget" (que podem se sobrepor), como tiro e quack.
+ma_engine g_AudioEngine;
+bool      g_AudioReady = false;
+
+// Toca um arquivo de som (se o áudio foi inicializado com sucesso).
+void PlayGameSound(const char* filename)
+{
+    if (g_AudioReady)
+        ma_engine_play_sound(&g_AudioEngine, filename, NULL);
+}
 
 // ---- Obstáculos (rochas) ----
 // Objetos com os quais o jogador colide (não pode atravessar). Cada um é uma
@@ -569,6 +586,9 @@ void SpawnTrees()
 //  de patos via raio-esfera.)
 void Shoot()
 {
+    // Som do disparo (toca em todo clique, acertando ou não).
+    PlayGameSound("../../data/shot.wav");
+
     glm::vec4 O = g_ShotOrigin;
     glm::vec4 D = g_ShotDirection; // já normalizado
 
@@ -661,6 +681,7 @@ void Shoot()
         d.fallVel.y = 2.0f;              // pequeno "tranco" para cima
         d.fallSpin = 0.0f;
         g_Score += 1;
+        PlayGameSound("../../data/quack.wav"); // som do pato ao ser atingido
         printf("HIT! Pontos: %d\n", g_Score);
         fflush(stdout);
     }
@@ -724,6 +745,13 @@ int main(int argc, char* argv[])
     // Escondemos e capturamos o cursor do mouse: ele fica preso no centro da
     // janela e usamos seu movimento relativo para olhar ao redor (estilo FPS).
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    // Inicializamos a engine de áudio (miniaudio). Se falhar, o jogo continua
+    // sem som (g_AudioReady = false).
+    if (ma_engine_init(NULL, &g_AudioEngine) == MA_SUCCESS)
+        g_AudioReady = true;
+    else
+        fprintf(stderr, "AVISO: não foi possível inicializar o áudio.\n");
 
     // Carregamento de todas funções definidas por OpenGL 3.3, utilizando a
     // biblioteca GLAD.
@@ -1250,6 +1278,10 @@ int main(int argc, char* argv[])
         // pela biblioteca GLFW.
         glfwPollEvents();
     }
+
+    // Finalizamos a engine de áudio.
+    if (g_AudioReady)
+        ma_engine_uninit(&g_AudioEngine);
 
     // Finalizamos o uso dos recursos do sistema operacional
     glfwTerminate();

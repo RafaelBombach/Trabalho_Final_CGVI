@@ -12,3 +12,8 @@ https://polyhaven.com/a/red_brick
 # Textura do chao (chao_base.jpeg): textura "Base" do asset de chao (modelo
 # "Grass test") que a dupla baixou (pasta chao/).
 # TODO (preencher pela dupla): URL/origem exata desse asset de chao.
+
+# Biblioteca de audio: miniaudio (include/miniaudio.h), de David Reid.
+#   https://github.com/mackron/miniaudio  -- licenca: dominio publico / MIT-0.
+# Sons shot.wav e quack.wav: gerados sinteticamente por nos (placeholders, via
+#   script Python). Podem ser substituidos por sons reais a vontade.

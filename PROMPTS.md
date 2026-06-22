@@ -237,6 +237,24 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 ---
 
+## Etapa 9 — Som (miniaudio): tiro e quack
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Adicionar som usando a biblioteca miniaudio (single-header, sugerida no
+> enunciado): tocar um som de tiro a cada disparo e um som de pato (quack) ao
+> acertar um pato. Integrar a implementação em uma TU separada
+> (src/miniaudio_impl.cpp), inicializar a ma_engine no início e tocar os efeitos
+> com ma_engine_play_sound (fire-and-forget, permite sobreposição). Gerar
+> arquivos shot.wav e quack.wav placeholder (sintetizados) que a dupla pode
+> substituir por sons reais.
+
+**Arquivos afetados:** `src/main.cpp`, `src/miniaudio_impl.cpp`,
+`include/miniaudio.h`, `CMakeLists.txt`, `data/shot.wav`, `data/quack.wav`,
+`data/FONTES.txt`.
+
+---
+
 ## Etapa 6.3 — Reverter as alterações das folhas (6.1 e 6.2)
 
 **Prompt (resumo da instrução dada à IA):**

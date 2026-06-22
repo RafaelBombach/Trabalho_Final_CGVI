@@ -11,6 +11,7 @@ set(SOURCES
   src/textrendering.cpp
   src/tiny_obj_loader.cpp
   src/stb_image.cpp
+  src/miniaudio_impl.cpp
   src/glad.c
 )
 
