@@ -255,6 +255,23 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 ---
 
+## Etapa 12 — Batida de asa dos patos (deformação no vertex shader)
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Adicionar animação de batida de asas aos patos voando. Como o pato é uma malha
+> única (sem esqueleto), animar de forma procedural no vertex shader: deslocar em
+> Y os vértices da asa (controlado por um uniform u_flap que oscila no tempo,
+> calculado no C++, com fase distinta por pato). Após análise da malha,
+> constatou-se que este modelo só tem UMA asa espalhada (lado +z); o lado -z é
+> cabeça/corpo/pernas. Por isso a deformação é restrita à asa real, excluindo a
+> cabeça (gate em X) e as pernas (gate em Y). Patos abatidos e demais objetos
+> usam u_flap = 0.
+
+**Arquivos afetados:** `src/main.cpp`, `src/shader_vertex.glsl`.
+
+---
+
 ## Etapa 11 — Menu de pausa (ESC) com volume
 
 **Prompt (resumo da instrução dada à IA):**

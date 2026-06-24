@@ -381,6 +381,7 @@ GLint g_projection_uniform;
 GLint g_object_id_uniform;
 GLint g_bbox_min_uniform;
 GLint g_bbox_max_uniform;
+GLint g_flap_uniform; // intensidade da batida de asas (vertex shader)
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -1002,6 +1003,9 @@ int main(int argc, char* argv[])
         #define OBSTACLE 3
         #define GRASS    4
 
+        // Por padrão, sem deformação de asas (só os patos voando usam u_flap).
+        glUniform1f(g_flap_uniform, 0.0f);
+
         // ---- Chão ----
         // O plano "the_plane" é 2x2 em XZ; escalamos para cobrir um grande
         // terreno (100x100 unidades) centrado na origem.
@@ -1050,6 +1054,7 @@ int main(int argc, char* argv[])
                       * Matrix_Rotate_Y(g_DuckYawOffset)
                       * Matrix_Scale(d.scale, d.scale, d.scale);
                 glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1f(g_flap_uniform, 0.0f); // pato abatido não bate asas
                 DrawVirtualObject("0");
                 continue;
             }
@@ -1115,8 +1120,14 @@ int main(int argc, char* argv[])
                   * Matrix_Rotate_Y(g_DuckYawOffset)
                   * Matrix_Scale(d.scale, d.scale, d.scale);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+
+            // Batida de asas: oscila no tempo, com fase distinta por pato (índice
+            // i) para que não batam todos sincronizados.
+            float flap = sinf(current_time * 12.0f + i * 1.7f) * 0.5f;
+            glUniform1f(g_flap_uniform, flap);
             DrawVirtualObject("0"); // nome do shape dentro de pato.obj
         }
+        glUniform1f(g_flap_uniform, 0.0f); // demais objetos não deformam
 
         // ---- Jogador (avatar) ----
         // Desenhamos o corpo do jogador apenas na câmera de 3a pessoa (na 1a
@@ -1432,6 +1443,7 @@ void LoadShadersFromFiles()
     g_object_id_uniform  = glGetUniformLocation(g_GpuProgramID, "object_id"); // Variável "object_id" em shader_fragment.glsl
     g_bbox_min_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_min");
     g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
+    g_flap_uniform       = glGetUniformLocation(g_GpuProgramID, "u_flap"); // batida de asas
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);

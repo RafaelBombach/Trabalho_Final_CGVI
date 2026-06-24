@@ -11,6 +11,10 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+// Intensidade da batida de asas dos patos (oscila no tempo, calculada no C++).
+// Para os demais objetos vale 0 (sem deformação). Veja shader_vertex em main.cpp.
+uniform float u_flap;
+
 // Atributos de vértice que serão gerados como saída ("out") pelo Vertex Shader.
 // ** Estes serão interpolados pelo rasterizador! ** gerando, assim, valores
 // para cada fragmento, os quais serão recebidos como entrada pelo Fragment
@@ -34,7 +38,23 @@ void main()
     // deste Vertex Shader, a placa de vídeo (GPU) fará a divisão por W. Veja
     // slides 41-67 e 69-86 do documento Aula_09_Projecoes.pdf.
 
-    gl_Position = projection * view * model * model_coefficients;
+    // Animação procedural de batida de asas (apenas patos; para os demais
+    // objetos u_flap = 0). As "asas" são os vértices afastados lateralmente do
+    // plano de simetria do corpo (que neste modelo fica em ~z=0.06, não em z=0).
+    // Deslocamos esses vértices em Y (para cima/baixo) proporcionalmente ao quão
+    // distante estão desse plano, criando a batida. Um "gate" suave em X exclui a
+    // CABEÇA (parte da frente do modelo) para que ela não se mexa junto.
+    // A oscilação no tempo vem de u_flap (calculada no C++).
+    vec4 mc = model_coefficients;
+    // Este modelo só tem UMA asa espalhada (lado +z). Deformamos apenas essa
+    // asa, excluindo a cabeça (frente, x baixo) e as pernas (baixo, y baixo)
+    // para não mexê-las junto.
+    float wing     = max((mc.z - 0.06) - 0.10, 0.0); // só o lado +z (a asa real)
+    float bodyGate = smoothstep(-0.10, 0.02, mc.x);  // 0 na cabeça/pescoço (frente)
+    float legGate  = smoothstep(-0.22, -0.14, mc.y); // 0 nas pernas (parte de baixo)
+    mc.y += u_flap * wing * bodyGate * legGate;
+
+    gl_Position = projection * view * model * mc;
 
     // Como as variáveis acima  (tipo vec4) são vetores com 4 coeficientes,
     // também é possível acessar e modificar cada coeficiente de maneira
@@ -51,10 +71,10 @@ void main()
     // rasterizador para gerar atributos únicos para cada fragmento gerado.
 
     // Posição do vértice atual no sistema de coordenadas global (World).
-    position_world = model * model_coefficients;
+    position_world = model * mc;
 
     // Posição do vértice atual no sistema de coordenadas local do modelo.
-    position_model = model_coefficients;
+    position_model = mc;
 
     // Normal do vértice atual no sistema de coordenadas global (World).
     // Veja slides 123-151 do documento Aula_07_Transformacoes_Geometricas_3D.pdf.
