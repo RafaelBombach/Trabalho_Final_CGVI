@@ -294,6 +294,12 @@ float     g_Volume = 0.7f; // volume geral do jogo [0,1], ajustável no menu de 
 // Quando true, o jogo fica pausado (a cena congela) e o menu é exibido.
 bool g_Paused = false;
 
+// ---- Tela cheia ----
+// Alterna entre janela e tela cheia (tecla F11). Guardamos a posição/tamanho da
+// janela para restaurá-la ao sair da tela cheia.
+bool g_Fullscreen = false;
+int  g_WindowedX = 0, g_WindowedY = 0, g_WindowedW = 1280, g_WindowedH = 720;
+
 // Toca um arquivo de som (se o áudio foi inicializado com sucesso).
 void PlayGameSound(const char* filename)
 {
@@ -696,7 +702,7 @@ int main(int argc, char* argv[])
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "Duck Hunt 3D - INF01047", NULL, NULL);
+    window = glfwCreateWindow(1280, 720, "Duck Hunt 3D - INF01047", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -739,7 +745,7 @@ int main(int argc, char* argv[])
     // redimensionada, por consequência alterando o tamanho do "framebuffer"
     // (região de memória onde são armazenados os pixels da imagem).
     glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
-    FramebufferSizeCallback(window, 800, 600); // Forçamos a chamada do callback acima, para definir g_ScreenRatio.
+    FramebufferSizeCallback(window, 1280, 720); // Forçamos a chamada do callback acima, para definir g_ScreenRatio.
 
     // Imprimimos no terminal informações sobre a GPU do sistema
     const GLubyte *vendor      = glGetString(GL_VENDOR);
@@ -2049,6 +2055,31 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         if (g_Volume > 1.0f) g_Volume = 1.0f;
         if (g_AudioReady)
             ma_engine_set_volume(&g_AudioEngine, g_Volume);
+    }
+
+    // ===== Tela cheia (F11) =====
+    // Alterna entre janela e tela cheia. Em tela cheia usamos a resolução nativa
+    // do monitor principal. O FramebufferSizeCallback ajusta o viewport e a razão
+    // de aspecto automaticamente.
+    if (key == GLFW_KEY_F11 && action == GLFW_PRESS)
+    {
+        g_Fullscreen = !g_Fullscreen;
+        if (g_Fullscreen)
+        {
+            // Salvamos o estado da janela antes de ir para tela cheia.
+            glfwGetWindowPos(window, &g_WindowedX, &g_WindowedY);
+            glfwGetWindowSize(window, &g_WindowedW, &g_WindowedH);
+            GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+            const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+            glfwSetWindowMonitor(window, monitor, 0, 0,
+                                 mode->width, mode->height, mode->refreshRate);
+        }
+        else
+        {
+            // Voltamos para o modo janela, restaurando posição e tamanho.
+            glfwSetWindowMonitor(window, NULL, g_WindowedX, g_WindowedY,
+                                 g_WindowedW, g_WindowedH, 0);
+        }
     }
 
     // ===== Movimentação do jogador (WASD) =====
