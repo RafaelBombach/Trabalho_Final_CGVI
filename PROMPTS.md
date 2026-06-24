@@ -255,6 +255,20 @@ ferramentas de IA neste trabalho, conforme exigido pelo enunciado.
 
 ---
 
+## Etapa 11 — Menu de pausa (ESC) com volume
+
+**Prompt (resumo da instrução dada à IA):**
+
+> Ao pressionar ESC, abrir um menu de pausa com opções de continuar jogando,
+> sair, e aumentar/diminuir o volume do jogo. Implementar com o sistema de
+> renderização de texto já existente (sem bibliotecas novas). Quando pausado, a
+> cena congela (delta-time = 0), a câmera não gira e não se atira; ESC retoma,
+> 'Q' sai e '+'/'-' ajustam o volume (via ma_engine_set_volume da miniaudio).
+
+**Arquivos afetados:** `src/main.cpp`.
+
+---
+
 ## Etapa 10 — Mover testes de colisão para collisions.cpp
 
 **Prompt (resumo da instrução dada à IA):**

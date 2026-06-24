@@ -288,6 +288,11 @@ int g_Score = 0;
 // efeitos "fire-and-forget" (que podem se sobrepor), como tiro e quack.
 ma_engine g_AudioEngine;
 bool      g_AudioReady = false;
+float     g_Volume = 0.7f; // volume geral do jogo [0,1], ajustável no menu de pausa
+
+// ---- Menu de pausa ----
+// Quando true, o jogo fica pausado (a cena congela) e o menu é exibido.
+bool g_Paused = false;
 
 // Toca um arquivo de som (se o áudio foi inicializado com sucesso).
 void PlayGameSound(const char* filename)
@@ -719,7 +724,10 @@ int main(int argc, char* argv[])
     // Inicializamos a engine de áudio (miniaudio). Se falhar, o jogo continua
     // sem som (g_AudioReady = false).
     if (ma_engine_init(NULL, &g_AudioEngine) == MA_SUCCESS)
+    {
         g_AudioReady = true;
+        ma_engine_set_volume(&g_AudioEngine, g_Volume); // volume inicial
+    }
     else
         fprintf(stderr, "AVISO: não foi possível inicializar o áudio.\n");
 
@@ -846,6 +854,12 @@ int main(int argc, char* argv[])
         float current_time = (float)glfwGetTime();
         g_DeltaTime = current_time - g_LastFrameTime;
         g_LastFrameTime = current_time;
+
+        // Quando o jogo está pausado (menu aberto), zeramos o delta-time: assim
+        // toda a cena (jogador, patos, quedas) congela, pois tudo é multiplicado
+        // por g_DeltaTime. A renderização e o menu continuam normalmente.
+        if (g_Paused)
+            g_DeltaTime = 0.0f;
 
         // ===================== Direção da câmera =====================
         // O vetor "view" (direção para onde a câmera/jogador olha) é definido a
@@ -1219,6 +1233,18 @@ int main(int argc, char* argv[])
             char score_buffer[64];
             snprintf(score_buffer, 64, "Pontos: %d", g_Score);
             TextRendering_PrintString(window, score_buffer, -1.0f + cw, 1.0f - lh, 1.0f);
+        }
+
+        // ===================== Menu de pausa =====================
+        // Desenhado por cima da cena congelada quando g_Paused == true.
+        if (g_Paused)
+        {
+            char vol_buffer[48];
+            snprintf(vol_buffer, 48, "[ + / - ]  Volume: %d%%", (int)(g_Volume * 100.0f + 0.5f));
+            TextRendering_PrintString(window, "== PAUSADO ==",      -0.16f,  0.30f, 2.5f);
+            TextRendering_PrintString(window, "[ ESC ]  Continuar", -0.16f,  0.08f, 1.5f);
+            TextRendering_PrintString(window, vol_buffer,           -0.16f, -0.02f, 1.5f);
+            TextRendering_PrintString(window, "[ Q ]    Sair",       -0.16f, -0.12f, 1.5f);
         }
 
         // O framebuffer onde OpenGL executa as operações de renderização não
@@ -1884,8 +1910,9 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
         g_LeftMouseButtonPressed = true;
 
-        // Clique esquerdo = atirar. Lança o raio da mira e abate o pato atingido.
-        Shoot();
+        // Clique esquerdo = atirar (exceto quando o menu de pausa está aberto).
+        if (!g_Paused)
+            Shoot();
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
@@ -1946,6 +1973,15 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
         return;
     }
 
+    // Com o menu de pausa aberto, não giramos a câmera. Mantemos a última
+    // posição sincronizada para não haver "salto" ao retomar o jogo.
+    if (g_Paused)
+    {
+        g_LastCursorPosX = xpos;
+        g_LastCursorPosY = ypos;
+        return;
+    }
+
     float dx = xpos - g_LastCursorPosX;
     float dy = ypos - g_LastCursorPosY;
     g_LastCursorPosX = xpos;
@@ -1992,9 +2028,28 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     Correcao_KeyCallback(key, action, mod);
     // =======================
 
-    // Se o usuário pressionar a tecla ESC, fechamos a janela.
+    // ===== Menu de pausa =====
+    // ESC abre/fecha o menu de pausa (Continuar). Com o menu aberto, 'Q' sai do
+    // jogo e '+' / '-' ajustam o volume.
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GL_TRUE);
+        g_Paused = !g_Paused;
+
+    if (g_Paused && (action == GLFW_PRESS || action == GLFW_REPEAT))
+    {
+        if (key == GLFW_KEY_Q)
+            glfwSetWindowShouldClose(window, GL_TRUE); // Sair
+
+        // Volume: '+' (tecla '=' ou '+' do teclado numérico) e '-'.
+        if (key == GLFW_KEY_EQUAL || key == GLFW_KEY_KP_ADD)
+            g_Volume += 0.05f;
+        if (key == GLFW_KEY_MINUS || key == GLFW_KEY_KP_SUBTRACT)
+            g_Volume -= 0.05f;
+
+        if (g_Volume < 0.0f) g_Volume = 0.0f;
+        if (g_Volume > 1.0f) g_Volume = 1.0f;
+        if (g_AudioReady)
+            ma_engine_set_volume(&g_AudioEngine, g_Volume);
+    }
 
     // ===== Movimentação do jogador (WASD) =====
     // Guardamos apenas o ESTADO (pressionada/solta) de cada tecla. O
